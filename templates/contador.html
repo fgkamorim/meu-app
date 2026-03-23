@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contador — Financeiro</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<div class="app-wrapper">
+
+<nav class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+        <span class="sidebar-brand-logo">💰</span>
+        <span class="sidebar-brand-name">Financeiro</span>
+        <button class="sidebar-close-btn" onclick="sidebarToggle()">✕</button>
+    </div>
+    <ul class="sidebar-nav">
+        <li><span class="sidebar-section-label">Principal</span></li>
+        <li><a href="/" class="sidebar-link"><span class="sidebar-icon">🏠</span>Dashboard</a></li>
+        <li><a href="/inteligencia" class="sidebar-link"><span class="sidebar-icon">💡</span>Inteligência</a></li>
+        <li><a href="/relatorio" class="sidebar-link"><span class="sidebar-icon">📊</span>Relatório</a></li>
+        <li><span class="sidebar-section-label">Financeiro</span></li>
+        <li><a href="/gestao" class="sidebar-link"><span class="sidebar-icon">👥</span>Gestão</a></li>
+        <li><a href="/notas" class="sidebar-link"><span class="sidebar-icon">🧾</span>Notas Fiscais</a></li>
+        <li><a href="/recorrentes" class="sidebar-link"><span class="sidebar-icon">🔄</span>Recorrentes
+            {% if rec_pendentes_qtd|default(0) > 0 %}<span class="badge-nav">{{ rec_pendentes_qtd }}</span>{% endif %}</a></li>
+        <li><span class="sidebar-section-label">Ferramentas</span></li>
+        <li><a href="/contador" class="sidebar-link ativo"><span class="sidebar-icon">🔢</span>Contador</a></li>
+        <li><a href="/busca" class="sidebar-link"><span class="sidebar-icon">🔍</span>Busca</a></li>
+        <li><a href="/importar" class="sidebar-link"><span class="sidebar-icon">📥</span>Importar CSV</a></li>
+        <li><span class="sidebar-section-label">Sistema</span></li>
+        <li><a href="/sistema/backup" class="sidebar-link"><span class="sidebar-icon">💾</span>Backup</a></li>
+        <li><a href="/configuracao-fiscal" class="sidebar-link"><span class="sidebar-icon">⚙</span>Config. Fiscal</a></li>
+        <li><a href="/backup" class="sidebar-link"><span class="sidebar-icon">⬇</span>Baixar Backup</a></li>
+    </ul>
+</nav>
+
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="sidebarToggle()"></div>
+
+<div class="page-wrap">
+<header class="topbar">
+    <button class="hamburger-btn" onclick="sidebarToggle()">&#9776;</button>
+    <span class="topbar-title">🔢 Contador Inteligente</span>
+    <div class="topbar-actions">
+        
+    </div>
+</header>
+
+<main>
+
+    {% with msgs = get_flashed_messages(with_categories=true) %}{% if msgs %}
+    <div id="flash-data" style="display:none;">
+        {% for cat, msg in msgs %}
+        <span data-cat="{{ cat }}" data-msg="{{ msg }}"></span>
+        {% endfor %}
+    </div>
+    {% endif %}{% endwith %}
+
+
+    <!-- Aviso de simulação -->
+    <div class="aviso-simulacao">
+        ⚠️ <strong>Simulação educativa.</strong> Os valores são aproximados e não substituem a orientação de um contador profissional. Consulte um especialista para decisões fiscais definitivas.
+    </div>
+
+    <div class="contador-layout">
+
+        <!-- ══════════════════════════════════════════
+             COLUNA ESQUERDA — Perfil + Formulário
+        ══════════════════════════════════════════ -->
+        <div class="contador-col-form">
+
+            <div class="intel-card">
+                <h2 class="intel-titulo">🧾 Perfil Fiscal</h2>
+
+                <form method="POST" action="/contador">
+
+                    <div class="form-group">
+                        <label>Tipo de Atuação Atual</label>
+                        <select name="tipo_atuacao">
+                            <option value="pf"  {% if perfil and perfil.tipo_atuacao == 'pf'  %}selected{% endif %}>Pessoa Física (PF)</option>
+                            <option value="mei" {% if perfil and perfil.tipo_atuacao == 'mei' %}selected{% endif %}>MEI</option>
+                            <option value="pj"  {% if perfil and perfil.tipo_atuacao == 'pj'  %}selected{% endif %}>PJ – Simples Nacional</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Renda / Salário Mensal Médio (R$)</label>
+                        <input type="number" name="renda_media" step="0.01" min="0" placeholder="Ex: 5000,00"
+                               value="{{ perfil.renda_media if perfil else '' }}">
+                        <span class="form-hint">Usado para calcular INSS e IRPF como Pessoa Física.</span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Faturamento Mensal Estimado (R$)</label>
+                        <input type="number" name="faturamento_estimado" step="0.01" min="0" placeholder="Ex: 8000,00"
+                               value="{{ perfil.faturamento_estimado if perfil else '' }}">
+                        <span class="form-hint">Total recebido por serviços/vendas por mês.</span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Despesas Mensais Ligadas ao Trabalho (R$)</label>
+                        <input type="number" name="despesas_trabalho" step="0.01" min="0" placeholder="Ex: 1200,00"
+                               value="{{ perfil.despesas_trabalho if perfil else '' }}">
+                        <span class="form-hint">Custos profissionais (ferramentas, internet, aluguel de espaço etc.).</span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Observações (opcional)</label>
+                        <input type="text" name="observacoes" placeholder="Atividade, ramo, dúvidas..."
+                               value="{{ perfil.observacoes if perfil and perfil.observacoes else '' }}">
+                    </div>
+
+                    <button type="submit" class="btn" style="background:#1a1f36;color:#fff;">
+                        💡 Salvar e Simular
+                    </button>
+                </form>
+            </div>
+
+        </div>
+
+        <!-- ══════════════════════════════════════════
+             COLUNA DIREITA — Resultados
+        ══════════════════════════════════════════ -->
+        <div class="contador-col-result">
+
+            {% if simulado and resultados %}
+
+            <!-- Simulação Fiscal -->
+            <div class="intel-card" style="margin-bottom:20px;">
+                <h2 class="intel-titulo">📊 Simulação Fiscal</h2>
+                <p style="font-size:0.82rem;color:#888;margin-bottom:16px;">Comparativo entre cenários — baseado nos dados informados.</p>
+
+                <div class="simulacao-grid">
+                    {% for r in resultados %}
+                    <div class="sim-card {% if r.melhor %}sim-melhor{% endif %} {% if not r.valido %}sim-invalido{% endif %}">
+                        <div class="sim-head">
+                            <span class="sim-sigla">{{ r.sigla }}</span>
+                            <span class="sim-nome">{{ r.nome }}</span>
+                            {% if r.melhor %}
+                            <span class="sim-badge-melhor">✓ Mais vantajoso</span>
+                            {% endif %}
+                            {% if not r.valido %}
+                            <span class="sim-badge-invalido">Fora do limite</span>
+                            {% endif %}
+                        </div>
+
+                        <div class="sim-body">
+                            <div class="sim-linha">
+                                <span class="sim-label">Custo estimado</span>
+                                <span class="sim-val vermelho">R$ {{ "%.2f"|format(r.custo) }}</span>
+                            </div>
+                            <div class="sim-linha">
+                                <span class="sim-label">Líquido estimado</span>
+                                {% if r.liquido is not none %}
+                                <span class="sim-val {% if r.liquido >= 0 %}verde{% else %}vermelho{% endif %} sim-liquido">
+                                    R$ {{ "%.2f"|format(r.liquido) }}
+                                </span>
+                                {% else %}
+                                <span class="sim-val cinza-text">—</span>
+                                {% endif %}
+                            </div>
+                            <p class="sim-detalhe">{{ r.detalhe }}</p>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Resumo Fiscal -->
+            <div class="intel-card" style="margin-bottom:20px;">
+                <h2 class="intel-titulo">📋 Resumo Fiscal</h2>
+                <div class="projecao-itens">
+                    <div class="proj-item">
+                        <span class="proj-label">Renda / salário informado</span>
+                        <span class="proj-valor azul">R$ {{ "%.2f"|format(resumo.renda_media) }}</span>
+                    </div>
+                    <div class="proj-item">
+                        <span class="proj-label">Faturamento mensal estimado</span>
+                        <span class="proj-valor verde">R$ {{ "%.2f"|format(resumo.faturamento) }}</span>
+                    </div>
+                    <div class="proj-item">
+                        <span class="proj-label">Despesas de trabalho</span>
+                        <span class="proj-valor vermelho">R$ {{ "%.2f"|format(resumo.despesas_trabalho) }}</span>
+                    </div>
+                    <div class="proj-item">
+                        <span class="proj-label">Sobra antes dos impostos</span>
+                        <span class="proj-valor {% if resumo.sobra_bruta >= 0 %}azul{% else %}vermelho{% endif %}">
+                            R$ {{ "%.2f"|format(resumo.sobra_bruta) }}
+                        </span>
+                    </div>
+                    <div class="proj-divider"></div>
+                    <div class="proj-item destaque">
+                        <span class="proj-label">Cenário mais econômico</span>
+                        <span class="proj-valor verde">{{ resumo.melhor_cenario }}</span>
+                    </div>
+                    <div class="proj-item destaque">
+                        <span class="proj-label">Líquido estimado no melhor cenário</span>
+                        <span class="proj-valor {% if resumo.liquido_melhor >= 0 %}verde{% else %}vermelho{% endif %}">
+                            R$ {{ "%.2f"|format(resumo.liquido_melhor) }}
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sugestões do Contador Inteligente -->
+            <div class="intel-card">
+                <h2 class="intel-titulo">🤖 Sugestões do Contador Inteligente</h2>
+                <ul class="frases-lista">
+                    {% for s in sugestoes %}
+                    <li class="frase-item">{{ s }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+
+            {% elif perfil and not simulado %}
+            <div class="intel-card">
+                <p style="color:#888;text-align:center;padding:20px;">
+                    Perfil salvo. Clique em <strong>"Salvar e Simular"</strong> para ver os resultados.
+                </p>
+            </div>
+
+            {% else %}
+            <div class="intel-card">
+                <div class="contador-vazio">
+                    <p>🧮</p>
+                    <p>Preencha o <strong>Perfil Fiscal</strong> ao lado e clique em <strong>"Salvar e Simular"</strong> para ver a comparação entre cenários.</p>
+                </div>
+            </div>
+            {% endif %}
+
+        </div>
+    </div>
+
+
+</main>
+<footer class="page-footer">
+    <p>Controle Financeiro — simples e eficiente</p>
+</footer>
+</div><!-- .page-wrap -->
+</div><!-- .app-wrapper -->
+
+<div class="toast-container" id="toast-container"></div>
+<script src="/static/app.js"></script>
+
+</body>
+</html>

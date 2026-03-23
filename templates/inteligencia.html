@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inteligência — Financeiro</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<div class="app-wrapper">
+
+<nav class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+        <span class="sidebar-brand-logo">💰</span>
+        <span class="sidebar-brand-name">Financeiro</span>
+        <button class="sidebar-close-btn" onclick="sidebarToggle()">✕</button>
+    </div>
+    <ul class="sidebar-nav">
+        <li><span class="sidebar-section-label">Principal</span></li>
+        <li><a href="/" class="sidebar-link"><span class="sidebar-icon">🏠</span>Dashboard</a></li>
+        <li><a href="/inteligencia" class="sidebar-link ativo"><span class="sidebar-icon">💡</span>Inteligência</a></li>
+        <li><a href="/relatorio" class="sidebar-link"><span class="sidebar-icon">📊</span>Relatório</a></li>
+        <li><span class="sidebar-section-label">Financeiro</span></li>
+        <li><a href="/gestao" class="sidebar-link"><span class="sidebar-icon">👥</span>Gestão</a></li>
+        <li><a href="/notas" class="sidebar-link"><span class="sidebar-icon">🧾</span>Notas Fiscais</a></li>
+        <li><a href="/recorrentes" class="sidebar-link"><span class="sidebar-icon">🔄</span>Recorrentes{% if rec_pendentes_qtd|default(0) > 0 %}<span class="badge-nav">{{ rec_pendentes_qtd }}</span>{% endif %}</a></li>
+        <li><span class="sidebar-section-label">Ferramentas</span></li>
+        <li><a href="/contador" class="sidebar-link"><span class="sidebar-icon">🔢</span>Contador</a></li>
+        <li><a href="/busca" class="sidebar-link"><span class="sidebar-icon">🔍</span>Busca</a></li>
+        <li><a href="/importar" class="sidebar-link"><span class="sidebar-icon">📥</span>Importar CSV</a></li>
+        <li><span class="sidebar-section-label">Sistema</span></li>
+        <li><a href="/sistema/backup" class="sidebar-link"><span class="sidebar-icon">💾</span>Backup</a></li>
+        <li><a href="/configuracao-fiscal" class="sidebar-link"><span class="sidebar-icon">⚙</span>Config. Fiscal</a></li>
+        <li><a href="/backup" class="sidebar-link"><span class="sidebar-icon">⬇</span>Baixar Backup</a></li>
+    </ul>
+</nav>
+
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="sidebarToggle()"></div>
+
+<div class="page-wrap">
+<header class="topbar">
+    <button class="hamburger-btn" onclick="sidebarToggle()">&#9776;</button>
+    <span class="topbar-title">💡 Inteligência Financeira</span>
+    <div class="topbar-actions">
+        <a href="/importar" class="topbar-btn topbar-btn-blue">📥 Importar CSV</a>
+        <a href="/" class="topbar-btn topbar-btn-dark">Ver Dashboard</a>
+    </div>
+</header>
+
+<main>
+
+    {% with msgs = get_flashed_messages(with_categories=true) %}{% if msgs %}
+    <div id="flash-data" style="display:none;">
+        {% for cat, msg in msgs %}
+        <span data-cat="{{ cat }}" data-msg="{{ msg }}"></span>
+        {% endfor %}
+    </div>
+    {% endif %}{% endwith %}
+
+{% if dados.sem_dados %}
+<div class="intel-vazio-box">
+    <div class="intel-vazio-icone">🧠</div>
+    <h2>Motor de Inteligência Financeira</h2>
+    <p>Adicione movimentações financeiras para gerar análises automáticas, detectar padrões e receber sugestões personalizadas.</p>
+    <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:12px;">
+        <a href="/" class="btn" style="background:#1a1f36;color:#fff;text-decoration:none;display:inline-block;">→ Registrar lançamentos</a>
+        <a href="/importar" class="btn" style="background:#2563eb;color:#fff;text-decoration:none;display:inline-block;">📥 Importar CSV</a>
+    </div>
+</div>
+
+{% else %}
+
+{% if dados.poucos_dados %}
+<div class="aviso-simulacao" style="margin-bottom:16px;">
+    ℹ <strong>Poucos dados disponíveis.</strong> Com mais meses de lançamentos as análises serão cada vez mais precisas e confiáveis.
+</div>
+{% endif %}
+
+<!-- ══ BLOCO 1: Score + Resumo Executivo ══════════════════════════════════════ -->
+<div class="intel-topo-grid">
+
+    <!-- Score Financeiro -->
+    <div class="intel-score-card {{ faixa_cls }}">
+        <div class="intel-score-titulo">Score Financeiro</div>
+        <div class="intel-score-numero">{{ dados.score }}</div>
+        <div class="intel-score-faixa">{{ faixa_score }}</div>
+        <div class="intel-score-barra-wrap">
+            <div class="intel-score-barra" style="width: {{ dados.score }}%;"></div>
+        </div>
+        <div class="intel-score-legenda">
+            <span>0</span><span>40</span><span>60</span><span>80</span><span>100</span>
+        </div>
+        <div class="intel-score-fatores">
+            {% for icone, fator, pts in dados.fatores_score %}
+            <div class="intel-score-fator">
+                <span>{{ icone }}</span>
+                <span class="intel-score-fator-txt">{{ fator }}</span>
+                <span class="intel-score-fator-pts {% if pts > 0 %}pts-pos{% elif pts < 0 %}pts-neg{% endif %}">
+                    {% if pts > 0 %}+{% endif %}{{ pts }}
+                </span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Resumo Executivo -->
+    <div class="intel-resumo-card">
+        <h3 class="intel-card-titulo">📋 Resumo Executivo</h3>
+        <div class="intel-resumo-bloco intel-resumo-situacao">
+            <div class="intel-resumo-label">📍 Situação atual</div>
+            <p>{{ dados.resumo.situacao }}</p>
+        </div>
+        {% if dados.resumo.tendencia %}
+        <div class="intel-resumo-bloco intel-resumo-tendencia">
+            <div class="intel-resumo-label">📈 Tendência</div>
+            <p>{{ dados.resumo.tendencia }}</p>
+        </div>
+        {% endif %}
+        <div class="intel-resumo-bloco intel-resumo-risco">
+            <div class="intel-resumo-label">⚠ Principal risco</div>
+            <p>{{ dados.resumo.risco }}</p>
+        </div>
+        <div class="intel-resumo-bloco intel-resumo-oport">
+            <div class="intel-resumo-label">✨ Melhor oportunidade</div>
+            <p>{{ dados.resumo.oportunidade }}</p>
+        </div>
+        <div class="intel-resumo-bloco intel-resumo-acao">
+            <div class="intel-resumo-label">🎯 Próxima ação recomendada</div>
+            <p>{{ dados.resumo.acao }}</p>
+        </div>
+    </div>
+
+</div>
+
+<!-- ══ BLOCO 2: Alertas Inteligentes + Histórico mensal ══════════════════════ -->
+<div class="intel-medio-grid">
+
+    <!-- Alertas Personalizados (aprimorado na etapa 15) -->
+    <div class="intel-card">
+        <h3 class="intel-card-titulo">🔔 Alertas Personalizados</h3>
+        {% if dados.alertas %}
+        <div class="intel-alertas-lista">
+            {% for alerta in dados.alertas %}
+            <div class="intel-alerta intel-alerta-{{ alerta.prioridade }}">
+                <div class="intel-alerta-prioridade">
+                    <span>{{ alerta.icone|default('') }}</span>
+                    {% if alerta.prioridade == 'alto' %}<span class="badge-nivel-alto">Alto</span>
+                    {% elif alerta.prioridade == 'medio' %}<span class="badge-nivel-medio">Médio</span>
+                    {% else %}<span class="badge-nivel-baixo">Baixo</span>{% endif %}
+                </div>
+                <p class="intel-alerta-texto">{{ alerta.texto }}</p>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="intel-vazio">Nenhum alerta relevante no momento.</p>
+        {% endif %}
+    </div>
+
+    <!-- Evolução mensal -->
+    <div class="intel-card">
+        <h3 class="intel-card-titulo">📅 Evolução Mensal</h3>
+        <table style="width:100%;font-size:0.79rem;border-collapse:collapse;">
+            <thead>
+                <tr>
+                    <th style="text-align:left;padding:5px 8px;color:#666;font-weight:600;border-bottom:2px solid #f0f0f0;">Mês</th>
+                    <th style="text-align:right;padding:5px 8px;color:#22c55e;font-weight:600;border-bottom:2px solid #f0f0f0;">Entradas</th>
+                    <th style="text-align:right;padding:5px 8px;color:#ef4444;font-weight:600;border-bottom:2px solid #f0f0f0;">Saídas</th>
+                    <th style="text-align:right;padding:5px 8px;color:#6b7280;font-weight:600;border-bottom:2px solid #f0f0f0;">Saldo</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for m in dados.dados_mensais %}
+                {% if m.entradas > 0 or m.saidas > 0 %}
+                <tr style="border-bottom:1px solid #f4f6f9;">
+                    <td style="padding:5px 8px;font-weight:{% if loop.last %}700{% else %}400{% endif %};">{{ m.label }}</td>
+                    <td style="padding:5px 8px;text-align:right;color:#22c55e;">R$ {{ "%.0f"|format(m.entradas) }}</td>
+                    <td style="padding:5px 8px;text-align:right;color:#ef4444;">R$ {{ "%.0f"|format(m.saidas) }}</td>
+                    <td style="padding:5px 8px;text-align:right;font-weight:700;color:{% if m.saldo >= 0 %}#16a34a{% else %}#dc2626{% endif %};">
+                        R$ {{ "%.0f"|format(m.saldo) }}
+                    </td>
+                </tr>
+                {% endif %}
+                {% endfor %}
+            </tbody>
+        </table>
+        <div style="margin-top:14px;">
+            <div class="intel-metricas-grid" style="grid-template-columns:repeat(3,1fr);">
+                <div class="intel-metrica">
+                    <span class="intel-metrica-label">Média entradas</span>
+                    <span class="intel-metrica-valor val-entrada">R$ {{ "%.0f"|format(dados.media_entradas) }}</span>
+                </div>
+                <div class="intel-metrica">
+                    <span class="intel-metrica-label">Média saídas</span>
+                    <span class="intel-metrica-valor val-saida">R$ {{ "%.0f"|format(dados.media_saidas) }}</span>
+                </div>
+                <div class="intel-metrica">
+                    <span class="intel-metrica-label">Taxa poupança</span>
+                    <span class="intel-metrica-valor {% if dados.taxa_poupanca >= 10 %}val-entrada{% elif dados.taxa_poupanca < 0 %}val-saida{% else %}val-neutro{% endif %}">{{ "%.1f"|format(dados.taxa_poupanca) }}%</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- ══ BLOCO 3: Comparação Histórica ════════════════════════════════════════ -->
+{% if dados.comparacao %}
+{% set comp = dados.comparacao %}
+<div class="intel-card" style="margin-bottom:18px;">
+    <h3 class="intel-card-titulo">⚖ Comparação Histórica</h3>
+    <p style="font-size:0.8rem;color:#888;margin:0 0 14px;">Mês atual ({{ comp.mes_atual_label }}) comparado ao mês anterior ({{ comp.mes_ant_label }}) e à média de {{ comp.n_meses_hist }} mês(es) anteriores.</p>
+    <div class="comp-hist-grid">
+        <!-- Entradas -->
+        <div class="comp-hist-bloco">
+            <div class="comp-hist-label">Entradas</div>
+            <div class="comp-hist-valor val-entrada">R$ {{ "%.0f"|format(comp.ent_atual) }}</div>
+            <div class="comp-hist-vars">
+                {% if comp.var_ent_ant is not none %}
+                <span class="comp-var {% if comp.var_ent_ant >= 0 %}comp-var-pos{% else %}comp-var-neg{% endif %}">
+                    {% if comp.var_ent_ant >= 0 %}▲{% else %}▼{% endif %}{{ "%.0f"|format(comp.var_ent_ant|abs) }}% vs mês ant.
+                </span>
+                {% endif %}
+                {% if comp.var_ent_media is not none %}
+                <span class="comp-var {% if comp.var_ent_media >= 0 %}comp-var-pos{% else %}comp-var-neg{% endif %}">
+                    {% if comp.var_ent_media >= 0 %}▲{% else %}▼{% endif %}{{ "%.0f"|format(comp.var_ent_media|abs) }}% vs média
+                </span>
+                {% endif %}
+            </div>
+        </div>
+        <!-- Saídas -->
+        <div class="comp-hist-bloco">
+            <div class="comp-hist-label">Saídas</div>
+            <div class="comp-hist-valor val-saida">R$ {{ "%.0f"|format(comp.sai_atual) }}</div>
+            <div class="comp-hist-vars">
+                {% if comp.var_sai_ant is not none %}
+                <span class="comp-var {% if comp.var_sai_ant <= 0 %}comp-var-pos{% else %}comp-var-neg{% endif %}">
+                    {% if comp.var_sai_ant > 0 %}▲{% else %}▼{% endif %}{{ "%.0f"|format(comp.var_sai_ant|abs) }}% vs mês ant.
+                </span>
+                {% endif %}
+                {% if comp.var_sai_media is not none %}
+                <span class="comp-var {% if comp.var_sai_media <= 0 %}comp-var-pos{% else %}comp-var-neg{% endif %}">
+                    {% if comp.var_sai_media > 0 %}▲{% else %}▼{% endif %}{{ "%.0f"|format(comp.var_sai_media|abs) }}% vs média
+                </span>
+                {% endif %}
+            </div>
+        </div>
+        <!-- Saldo -->
+        <div class="comp-hist-bloco">
+            <div class="comp-hist-label">Saldo</div>
+            <div class="comp-hist-valor {% if comp.saldo_atual >= 0 %}val-entrada{% else %}val-saida{% endif %}">R$ {{ "%.0f"|format(comp.saldo_atual) }}</div>
+            <div class="comp-hist-vars">
+                <span class="comp-var" style="color:#888;">Mês ant.: R$ {{ "%.0f"|format(comp.saldo_ant) }}</span>
+                <span class="comp-var" style="color:#888;">Média: R$ {{ "%.0f"|format(comp.media_ent - comp.media_sai) }}</span>
+            </div>
+        </div>
+    </div>
+    {% if comp.cat_comparacao %}
+    <div style="margin-top:16px;">
+        <div style="font-size:0.75rem;color:#888;text-transform:uppercase;font-weight:700;margin-bottom:10px;">Variação por categoria (atual vs média histórica)</div>
+        <div class="comp-cat-lista">
+            {% for c in comp.cat_comparacao %}
+            {% if c.media > 0 or c.atual > 0 %}
+            <div class="comp-cat-item">
+                <span class="comp-cat-nome">{{ c.nome|capitalize }}</span>
+                <div class="comp-cat-vals">
+                    <span style="color:#6b7280;">Atual: R$ {{ "%.0f"|format(c.atual) }}</span>
+                    <span style="color:#9ca3af;">Média: R$ {{ "%.0f"|format(c.media) }}</span>
+                </div>
+                <span class="comp-var {% if c.variacao <= 0 %}comp-var-pos{% elif c.variacao > 30 %}comp-var-neg{% else %}comp-var-neutro{% endif %}">
+                    {% if c.variacao > 0 %}+{% endif %}{{ "%.0f"|format(c.variacao) }}%
+                </span>
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
+<!-- ══ BLOCO 4: Tendência + Perfil Financeiro ════════════════════════════════ -->
+<div class="intel-medio-grid">
+
+    <!-- Tendência Financeira -->
+    {% if dados.tendencias %}
+    {% set t = dados.tendencias %}
+    <div class="intel-card">
+        <h3 class="intel-card-titulo">📈 Tendência Financeira</h3>
+        <p style="font-size:0.8rem;color:#888;margin:0 0 14px;">Análise dos últimos {{ t.n_meses }} meses.</p>
+        <div class="tend-grid">
+            <div class="tend-item {% if t.tend_renda == 'subindo' %}tend-pos{% elif t.tend_renda == 'caindo' %}tend-neg{% else %}tend-neutro{% endif %}">
+                <div class="tend-icone">{% if t.tend_renda == 'subindo' %}📈{% elif t.tend_renda == 'caindo' %}📉{% else %}➡{% endif %}</div>
+                <div class="tend-label">Renda</div>
+                <div class="tend-valor">{{ t.tend_renda|title }}</div>
+                {% if t.pct_renda > 0 %}<div class="tend-pct">{{ "%.0f"|format(t.pct_renda) }}%</div>{% endif %}
+            </div>
+            <div class="tend-item {% if t.tend_gastos == 'caindo' %}tend-pos{% elif t.tend_gastos == 'subindo' %}tend-neg{% else %}tend-neutro{% endif %}">
+                <div class="tend-icone">{% if t.tend_gastos == 'subindo' %}📈{% elif t.tend_gastos == 'caindo' %}📉{% else %}➡{% endif %}</div>
+                <div class="tend-label">Gastos</div>
+                <div class="tend-valor">{{ t.tend_gastos|title }}</div>
+                {% if t.pct_gastos > 0 %}<div class="tend-pct">{{ "%.0f"|format(t.pct_gastos) }}%</div>{% endif %}
+            </div>
+            <div class="tend-item {% if t.tend_saldo == 'subindo' %}tend-pos{% elif t.tend_saldo == 'caindo' %}tend-neg{% else %}tend-neutro{% endif %}">
+                <div class="tend-icone">{% if t.tend_saldo == 'subindo' %}📈{% elif t.tend_saldo == 'caindo' %}📉{% else %}➡{% endif %}</div>
+                <div class="tend-label">Saldo</div>
+                <div class="tend-valor">{{ t.tend_saldo|title }}</div>
+                {% if t.pct_saldo > 0 %}<div class="tend-pct">{{ "%.0f"|format(t.pct_saldo) }}%</div>{% endif %}
+            </div>
+        </div>
+
+        <!-- Mini barras dos últimos meses -->
+        {% if t.ult3_labels %}
+        <div style="margin-top:16px;">
+            <div style="font-size:0.75rem;color:#888;text-transform:uppercase;font-weight:700;margin-bottom:10px;">Evolução dos últimos {{ t.n_meses }} meses</div>
+            {% set max_val = ([t.ult3_entradas|max, t.ult3_saidas|max])|max %}
+            {% for i in range(t.n_meses) %}
+            <div style="margin-bottom:8px;">
+                <div style="font-size:0.75rem;color:#888;margin-bottom:3px;">{{ t.ult3_labels[i] }}</div>
+                <div style="display:flex;gap:4px;align-items:center;">
+                    <div style="flex:1;">
+                        <div style="height:6px;background:#dcfce7;border-radius:3px;overflow:hidden;">
+                            <div style="height:100%;background:#22c55e;width:{% if max_val > 0 %}{{ [(t.ult3_entradas[i]/max_val*100)|int,100]|min }}{% else %}0{% endif %}%;"></div>
+                        </div>
+                    </div>
+                    <div style="flex:1;">
+                        <div style="height:6px;background:#fee2e2;border-radius:3px;overflow:hidden;">
+                            <div style="height:100%;background:#ef4444;width:{% if max_val > 0 %}{{ [(t.ult3_saidas[i]/max_val*100)|int,100]|min }}{% else %}0{% endif %}%;"></div>
+                        </div>
+                    </div>
+                    <span style="font-size:0.72rem;color:{% if t.ult3_saldos[i] >= 0 %}#16a34a{% else %}#dc2626{% endif %};font-weight:700;min-width:70px;text-align:right;">R$ {{ "%.0f"|format(t.ult3_saldos[i]) }}</span>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {% if t.cats_em_alta %}
+        <div style="margin-top:14px;padding:10px 12px;background:#fff7ed;border-radius:8px;border-left:3px solid #f97316;">
+            <div style="font-size:0.75rem;font-weight:700;color:#c2410c;margin-bottom:6px;">⚡ Categorias em alta contínua</div>
+            {% for c in t.cats_em_alta %}
+            <div style="font-size:0.8rem;color:#92400e;margin-bottom:3px;">
+                <strong>{{ c.nome|capitalize }}</strong> — subiu {{ "%.0f"|format(c.pct) }}% nos últimos {{ t.n_meses }} meses (R$ {{ "%.0f"|format(c.valor) }}/mês)
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {% if t.neg_seguidos >= 2 %}
+        <div style="margin-top:10px;padding:10px 12px;background:#fef2f2;border-radius:8px;border-left:3px solid #ef4444;">
+            <strong style="color:#b91c1c;font-size:0.82rem;">🚨 {{ t.neg_seguidos }} meses consecutivos com saldo negativo.</strong>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Perfil Financeiro -->
+    {% if dados.perfil %}
+    {% set p = dados.perfil %}
+    <div class="intel-card">
+        <h3 class="intel-card-titulo">👤 Perfil Financeiro</h3>
+        <p style="font-size:0.8rem;color:#888;margin:0 0 10px;">Baseado em {{ p.n_meses }} mês(es) de histórico.</p>
+
+        <div class="perfil-label-badge perfil-{{ p.perfil_cor }}">{{ p.perfil_label }}</div>
+
+        <div class="intel-metricas-grid" style="margin-top:14px;">
+            <div class="intel-metrica">
+                <span class="intel-metrica-label">Renda média</span>
+                <span class="intel-metrica-valor val-entrada">R$ {{ "%.0f"|format(p.media_renda) }}</span>
+            </div>
+            <div class="intel-metrica">
+                <span class="intel-metrica-label">Gastos médios</span>
+                <span class="intel-metrica-valor val-saida">R$ {{ "%.0f"|format(p.media_gastos) }}</span>
+            </div>
+            <div class="intel-metrica">
+                <span class="intel-metrica-label">Capacidade de guardar</span>
+                <span class="intel-metrica-valor {% if p.cap_guardar >= 0 %}val-entrada{% else %}val-saida{% endif %}">R$ {{ "%.0f"|format(p.cap_guardar) }}/mês</span>
+            </div>
+            <div class="intel-metrica">
+                <span class="intel-metrica-label">Taxa de poupança</span>
+                <span class="intel-metrica-valor {% if p.pct_guardar >= 20 %}val-entrada{% elif p.pct_guardar < 5 %}val-saida{% else %}val-neutro{% endif %}">{{ "%.1f"|format(p.pct_guardar) }}%</span>
+            </div>
+        </div>
+
+        <!-- Fixed vs Variable -->
+        <div style="margin-top:14px;">
+            <div style="font-size:0.75rem;color:#888;text-transform:uppercase;font-weight:700;margin-bottom:8px;">Composição dos Gastos</div>
+            <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;">
+                <span style="font-size:0.8rem;color:#6b7280;min-width:80px;">Fixas</span>
+                <div style="flex:1;height:12px;background:#f3f4f6;border-radius:6px;overflow:hidden;">
+                    <div style="height:100%;background:#3b82f6;width:{{ p.pct_fixas|int }}%;border-radius:6px;"></div>
+                </div>
+                <span style="font-size:0.8rem;font-weight:700;color:#3b82f6;min-width:42px;text-align:right;">{{ "%.0f"|format(p.pct_fixas) }}%</span>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;">
+                <span style="font-size:0.8rem;color:#6b7280;min-width:80px;">Variáveis</span>
+                <div style="flex:1;height:12px;background:#f3f4f6;border-radius:6px;overflow:hidden;">
+                    <div style="height:100%;background:#a78bfa;width:{{ p.pct_variaveis|int }}%;border-radius:6px;"></div>
+                </div>
+                <span style="font-size:0.8rem;font-weight:700;color:#7c3aed;min-width:42px;text-align:right;">{{ "%.0f"|format(p.pct_variaveis) }}%</span>
+            </div>
+        </div>
+
+        <!-- Top categorias -->
+        {% if p.top_cats %}
+        <div style="margin-top:14px;">
+            <div style="font-size:0.75rem;color:#888;text-transform:uppercase;font-weight:700;margin-bottom:8px;">Principais Categorias de Gasto</div>
+            {% for cat in p.top_cats %}
+            <div class="intel-cat-linha">
+                <span class="intel-cat-nome">{{ cat.nome|capitalize }}</span>
+                <div class="intel-cat-barra-wrap">
+                    <div class="intel-cat-barra" style="width:{{ cat.barra }}%;"></div>
+                </div>
+                <span class="intel-cat-valor" style="min-width:80px;text-align:right;">R$ {{ "%.0f"|format(cat.media_mensal) }}/mês</span>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+</div>
+
+<!-- ══ BLOCO 5: Detector de Erros + Sugestões ═══════════════════════════════ -->
+<div class="intel-medio-grid">
+
+    <!-- Detector de Erros -->
+    <div class="intel-card">
+        <h3 class="intel-card-titulo">🔍 Detector de Erros</h3>
+        {% if dados.erros %}
+        <div class="intel-erros-lista">
+            {% for erro in dados.erros %}
+            <div class="intel-erro intel-erro-{{ erro.nivel }}">
+                <div class="intel-erro-header">
+                    <span class="intel-erro-nivel-badge">
+                        {% if erro.nivel == 'alto' %}🔴{% elif erro.nivel == 'medio' %}🟡{% else %}🟢{% endif %}
+                        {{ erro.nivel|title }}
+                    </span>
+                    <strong class="intel-erro-titulo">{{ erro.titulo }}</strong>
+                </div>
+                <p class="intel-erro-explicacao">{{ erro.explicacao }}</p>
+                <div class="intel-erro-detalhe">
+                    <div><span class="intel-erro-label">Impacto:</span> {{ erro.impacto }}</div>
+                    <div><span class="intel-erro-label">Sugestão:</span> {{ erro.sugestao }}</div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="intel-sem-erros">
+            <span style="font-size:2rem;">✅</span>
+            <p>Nenhum erro crítico detectado no período analisado.</p>
+            <p style="font-size:0.78rem;color:#aaa;">Continue monitorando regularmente seus lançamentos.</p>
+        </div>
+        {% endif %}
+
+        <!-- Análise de categorias -->
+        {% if dados.cats_sorted %}
+        <div style="margin-top:16px;">
+            <div style="font-size:0.75rem;color:#888;text-transform:uppercase;font-weight:700;margin-bottom:8px;">Distribuição de gastos por categoria</div>
+            {% set total_cats = dados.cats_sorted | sum(attribute=1) %}
+            {% for cat, val in dados.cats_sorted[:6] %}
+            <div class="intel-cat-linha">
+                <span class="intel-cat-nome">{{ cat }}</span>
+                <div class="intel-cat-barra-wrap">
+                    <div class="intel-cat-barra" style="width: {% if total_cats > 0 %}{{ [(val/total_cats*100)|int, 100]|min }}{% else %}0{% endif %}%;"></div>
+                </div>
+                <span class="intel-cat-valor">R$ {{ "%.0f"|format(val) }}</span>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Sugestões Inteligentes -->
+    <div class="intel-card">
+        <h3 class="intel-card-titulo">💡 Sugestões Inteligentes</h3>
+        {% if dados.sugestoes %}
+        <div class="intel-sugestoes-lista">
+            {% for s in dados.sugestoes %}
+            <div class="intel-sugestao">
+                <span class="intel-sugestao-icone">{{ s.icone }}</span>
+                <p class="intel-sugestao-texto">{{ s.texto }}</p>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="intel-vazio">Adicione mais lançamentos para receber sugestões personalizadas.</p>
+        {% endif %}
+
+        <div style="margin-top:18px;">
+            <div style="font-size:0.75rem;color:#888;text-transform:uppercase;font-weight:700;margin-bottom:8px;">Ações rápidas</div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                <a href="/" class="btn" style="font-size:0.8rem;background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0;text-decoration:none;display:inline-block;">+ Lançamento</a>
+                <a href="/importar" class="btn" style="font-size:0.8rem;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;text-decoration:none;display:inline-block;">📥 Importar CSV</a>
+                <a href="/gestao#sec-metas" class="btn" style="font-size:0.8rem;background:#f5f3ff;color:#7c3aed;border:1px solid #ddd6fe;text-decoration:none;display:inline-block;">🎯 Metas</a>
+                <a href="/relatorio" class="btn" style="font-size:0.8rem;background:#fff7ed;color:#c2410c;border:1px solid #fed7aa;text-decoration:none;display:inline-block;">📋 Relatório</a>
+            </div>
+        </div>
+
+        <!-- Cat crescimento acima do normal -->
+        {% if dados.cat_crescimento %}
+        {% set cat, val, media_cat, pct = dados.cat_crescimento %}
+        <div class="intel-destaque-alerta" style="margin-top:16px;">
+            ⚡ A categoria <strong>{{ cat }}</strong> cresceu <strong>{{ pct|int }}%</strong> acima do normal este mês (R$ {{ "%.0f"|format(val) }} vs média R$ {{ "%.0f"|format(media_cat) }}).
+        </div>
+        {% endif %}
+    </div>
+
+</div>
+
+<!-- ══ BLOCO 6: Plano de Ação + Automações ════════════════════════════════════ -->
+{% if dados.plano_acao or dados.automacoes %}
+<div class="intel-medio-grid">
+
+    <!-- Plano de Ação -->
+    {% if dados.plano_acao %}
+    <div class="intel-card">
+        <h3 class="intel-card-titulo">🎯 Plano de Ação</h3>
+        <p style="font-size:0.8rem;color:#888;margin:0 0 14px;">Próximas ações recomendadas com base no seu momento financeiro atual.</p>
+        <div class="plano-lista">
+            {% for acao in dados.plano_acao %}
+            <div class="plano-item">
+                <span class="plano-icone">{{ acao.icone }}</span>
+                <div class="plano-conteudo">
+                    <div class="plano-titulo">{{ acao.titulo }}</div>
+                    <div class="plano-desc">{{ acao.descricao }}</div>
+                </div>
+                <a href="{{ acao.url }}" class="plano-btn">{{ acao.label }}</a>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Automações Inteligentes -->
+    {% if dados.automacoes %}
+    <div class="intel-card">
+        <h3 class="intel-card-titulo">⚡ Automações Inteligentes</h3>
+        <p style="font-size:0.8rem;color:#888;margin:0 0 14px;">Sugestões de ações que o sistema identificou automaticamente.</p>
+        <div class="automacao-lista">
+            {% for auto in dados.automacoes %}
+            <div class="automacao-item automacao-{{ auto.prioridade }}">
+                <div class="automacao-header">
+                    <span class="automacao-icone">{{ auto.icone }}</span>
+                    <div class="automacao-info">
+                        <div class="automacao-titulo">{{ auto.titulo }}</div>
+                        <div class="automacao-desc">{{ auto.descricao }}</div>
+                    </div>
+                </div>
+                {% if auto.tipo == 'registrar_previsao' and auto.dados_prev is defined %}
+                <form method="POST" action="/previsao/registrar" style="margin-top:8px;">
+                    <input type="hidden" name="descricao" value="{{ auto.dados_prev.descricao }}">
+                    <input type="hidden" name="categoria" value="{{ auto.dados_prev.categoria }}">
+                    <input type="hidden" name="subtipo"   value="{{ auto.dados_prev.subtipo }}">
+                    <input type="hidden" name="tipo"      value="{{ auto.dados_prev.tipo }}">
+                    <input type="hidden" name="valor"     value="{{ auto.dados_prev.valor_estimado }}">
+                    <input type="hidden" name="data"      value="{{ auto.dados_prev.data_estimada }}">
+                    <button type="submit" class="automacao-btn-acao">✅ Registrar agora</button>
+                </form>
+                {% else %}
+                <a href="{{ auto.acao_url }}" class="automacao-btn-link">{{ auto.acao_label }} →</a>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+{% endif %}
+
+<!-- ══ BLOCO 7: Motor de Padrões ════════════════════════════════════════════ -->
+{% if dados.padroes %}
+<div class="intel-card" style="margin-bottom:18px;">
+    <h3 class="intel-card-titulo">🧩 Motor de Padrões</h3>
+    <p style="font-size:0.8rem;color:#888;margin:0 0 14px;">Comportamentos recorrentes detectados no seu histórico financeiro.</p>
+    <div class="padroes-grid">
+        {% for p in dados.padroes %}
+        <div class="padrao-item padrao-{{ p.confianca }}">
+            <div class="padrao-header">
+                <span class="padrao-desc">{{ p.descricao[:35] }}</span>
+                <span class="padrao-badge padrao-badge-{{ p.confianca }}">
+                    {% if p.confianca == 'alta' %}Alta confiança{% elif p.confianca == 'media' %}Média{% else %}Baixa{% endif %}
+                </span>
+            </div>
+            <div class="padrao-meta">
+                <span class="padrao-tag">{{ p.tipo|capitalize }}</span>
+                <span class="padrao-tag">{{ p.categoria|capitalize }}</span>
+                {% if p.subtipo %}<span class="padrao-tag">{{ p.subtipo }}</span>{% endif %}
+            </div>
+            <div class="padrao-stats">
+                <div class="padrao-stat">
+                    <span class="padrao-stat-label">Ocorrências</span>
+                    <span class="padrao-stat-val">{{ p.frequencia }}×</span>
+                </div>
+                <div class="padrao-stat">
+                    <span class="padrao-stat-label">Valor médio</span>
+                    <span class="padrao-stat-val">R$ {{ "%.0f"|format(p.valor_medio) }}</span>
+                </div>
+                <div class="padrao-stat">
+                    <span class="padrao-stat-label">Dia médio</span>
+                    <span class="padrao-stat-val">dia {{ p.dia_medio }}</span>
+                </div>
+                <div class="padrao-stat">
+                    <span class="padrao-stat-label">Meses</span>
+                    <span class="padrao-stat-val">{{ p.n_meses }}</span>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    <p style="font-size:0.75rem;color:#aaa;margin:12px 0 0;">O sistema aprende com seu histórico e melhora as sugestões ao longo do tempo.</p>
+</div>
+{% endif %}
+
+<!-- ══ BLOCO 8: Previsões de Lançamentos ════════════════════════════════════ -->
+{% if dados.previsoes %}
+<div class="intel-card" style="margin-bottom:18px;">
+    <h3 class="intel-card-titulo">🔮 Previsões de Lançamentos</h3>
+    <p style="font-size:0.8rem;color:#888;margin:0 0 14px;">Lançamentos que provavelmente acontecerão este mês, com base no seu histórico.</p>
+    <div class="previsoes-lista">
+        {% for prev in dados.previsoes %}
+        <div class="previsao-item">
+            <div class="previsao-info">
+                <div class="previsao-desc">{{ prev.descricao[:40] }}</div>
+                <div class="previsao-meta">
+                    <span class="previsao-tag previsao-tipo-{{ prev.tipo }}">{{ prev.tipo|capitalize }}</span>
+                    <span class="previsao-tag">{{ prev.categoria|capitalize }}</span>
+                    <span class="previsao-conf previsao-conf-{{ prev.confianca }}">
+                        {% if prev.confianca == 'alta' %}● Alta confiança{% else %}◐ Média confiança{% endif %}
+                    </span>
+                </div>
+            </div>
+            <div class="previsao-valores">
+                <div class="previsao-valor">R$ {{ "%.0f"|format(prev.valor_estimado) }}</div>
+                <div class="previsao-data">~dia {{ prev.data_estimada[8:] }}</div>
+            </div>
+            <form method="POST" action="/previsao/registrar" style="flex-shrink:0;">
+                <input type="hidden" name="descricao" value="{{ prev.descricao }}">
+                <input type="hidden" name="categoria" value="{{ prev.categoria }}">
+                <input type="hidden" name="subtipo"   value="{{ prev.subtipo }}">
+                <input type="hidden" name="tipo"      value="{{ prev.tipo }}">
+                <input type="hidden" name="valor"     value="{{ prev.valor_estimado }}">
+                <input type="hidden" name="data"      value="{{ prev.data_estimada }}">
+                <button type="submit" class="previsao-btn">Registrar</button>
+            </form>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+{% endif %}
+
+</main>
+<footer class="page-footer">
+    <p>Controle Financeiro — simples e eficiente</p>
+</footer>
+</div><!-- .page-wrap -->
+</div><!-- .app-wrapper -->
+
+<div class="toast-container" id="toast-container"></div>
+<script src="/static/app.js"></script>
+</body>
+</html>

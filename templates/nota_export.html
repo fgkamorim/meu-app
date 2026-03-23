@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ nota.numero_nota }} — Nota Fiscal</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: system-ui, -apple-system, Arial, sans-serif;
+            background: #f4f6f9;
+            color: #222;
+            font-size: 15px;
+            line-height: 1.5;
+        }
+        .acoes {
+            max-width: 720px;
+            margin: 20px auto 0;
+            padding: 0 20px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .btn {
+            display: inline-block;
+            padding: 9px 18px;
+            border-radius: 7px;
+            font-size: 0.88rem;
+            font-weight: 700;
+            text-decoration: none;
+            cursor: pointer;
+            border: none;
+        }
+        .btn-print { background: #1a1f36; color: #fff; }
+        .btn-voltar { background: #e8eaf0; color: #1a1f36; }
+        .wrap {
+            max-width: 720px;
+            margin: 20px auto 40px;
+            padding: 0 20px;
+        }
+        .doc {
+            background: #fff;
+            border: 2px solid #e8eaf0;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+        }
+        .doc-header {
+            background: #1a1f36;
+            color: #fff;
+            padding: 24px 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            flex-wrap: wrap;
+            gap: 14px;
+        }
+        .doc-titulo { display: flex; flex-direction: column; gap: 5px; }
+        .doc-tipo { font-size: 0.7rem; letter-spacing: 2px; opacity: 0.65; text-transform: uppercase; }
+        .doc-numero { font-size: 1.8rem; font-weight: 800; letter-spacing: 1px; }
+        .doc-empresa { font-size: 0.82rem; opacity: 0.75; margin-top: 4px; }
+        .status-badge {
+            display: inline-block;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 0.82rem;
+            font-weight: 700;
+            margin-top: 4px;
+        }
+        .status-emitida  { background: rgba(34,197,94,0.2); color: #bbf7d0; }
+        .status-rascunho { background: rgba(251,191,36,0.2); color: #fef3c7; }
+        .status-cancelada{ background: rgba(239,68,68,0.2); color: #fecaca; }
+
+        .doc-body { padding: 32px; display: flex; flex-direction: column; gap: 22px; }
+        .dupla { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+        .secao { display: flex; flex-direction: column; gap: 4px; }
+        .secao-titulo {
+            font-size: 0.68rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #9ca3af;
+        }
+        .secao-valor { font-size: 0.95rem; color: #1a1f36; }
+        .secao-nome  { font-weight: 700; font-size: 1.05rem; }
+        .secao-sub   { font-size: 0.8rem; color: #777; }
+
+        .divider { height: 1px; background: #f0f0f0; }
+
+        .valor-box {
+            background: #f0fdf4;
+            border: 2px solid #86efac;
+            border-radius: 10px;
+            padding: 18px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .valor-label { font-size: 0.82rem; font-weight: 700; color: #166534; text-transform: uppercase; letter-spacing: 0.5px; }
+        .valor-num   { font-size: 2rem; font-weight: 800; color: #15803d; }
+
+        .doc-footer {
+            background: #f8f9fb;
+            border-top: 1px solid #e8eaf0;
+            padding: 14px 32px;
+        }
+        .doc-footer p { font-size: 0.7rem; color: #aaa; line-height: 1.6; }
+
+        .cancelado-banner {
+            background: #fee2e2;
+            border-top: 3px solid #ef4444;
+            padding: 12px 32px;
+            text-align: center;
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: #dc2626;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        @media print {
+            body { background: #fff; }
+            .acoes { display: none; }
+            .wrap { margin: 0; padding: 0; max-width: 100%; }
+            .doc { box-shadow: none; border: 1px solid #ccc; border-radius: 0; }
+        }
+        @media (max-width: 600px) {
+            .dupla { grid-template-columns: 1fr; }
+            .doc-header, .doc-body, .doc-footer { padding: 18px 20px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="acoes">
+    <button class="btn btn-print" onclick="window.print()">🖨 Imprimir</button>
+    <a href="/notas/ver/{{ nota.id }}" class="btn btn-voltar">← Voltar para o sistema</a>
+</div>
+
+<div class="wrap">
+    <div class="doc">
+
+        <!-- Cabeçalho -->
+        <div class="doc-header">
+            <div class="doc-titulo">
+                <span class="doc-tipo">Nota Fiscal Interna</span>
+                <span class="doc-numero">{{ nota.numero_nota }}</span>
+                <span class="doc-empresa">Controle Financeiro — documento interno</span>
+            </div>
+            <div>
+                {% if nota.status == 'emitida' %}
+                <span class="status-badge status-emitida">✅ Emitida</span>
+                {% elif nota.status == 'rascunho' %}
+                <span class="status-badge status-rascunho">📝 Rascunho</span>
+                {% else %}
+                <span class="status-badge status-cancelada">❌ Cancelada</span>
+                {% endif %}
+            </div>
+        </div>
+
+        {% if nota.status == 'cancelada' %}
+        <div class="cancelado-banner">⚠ Esta nota foi cancelada e não tem validade</div>
+        {% endif %}
+
+        <!-- Corpo -->
+        <div class="doc-body">
+
+            <div class="secao">
+                <span class="secao-titulo">📅 Data de Emissão</span>
+                <span class="secao-valor">{{ nota.data_emissao }}</span>
+            </div>
+
+            <div class="divider"></div>
+
+            <div class="dupla">
+                <div class="secao">
+                    <span class="secao-titulo">👤 Cliente</span>
+                    <span class="secao-valor secao-nome">{{ nota.cliente_nome }}</span>
+                    <span class="secao-sub">
+                        {% if nota.cliente_tipo == 'pj' %}Pessoa Jurídica{% else %}Pessoa Física{% endif %}
+                        {% if nota.cpf_cnpj %} · {{ nota.cpf_cnpj }}{% endif %}
+                    </span>
+                    {% if nota.email %}<span class="secao-sub">{{ nota.email }}</span>{% endif %}
+                    {% if nota.telefone %}<span class="secao-sub">{{ nota.telefone }}</span>{% endif %}
+                </div>
+
+                <div class="secao">
+                    <span class="secao-titulo">🛠 Serviço Prestado</span>
+                    <span class="secao-valor secao-nome">{{ nota.servico_nome }}</span>
+                    {% if nota.servico_descricao %}
+                    <span class="secao-sub">{{ nota.servico_descricao }}</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            {% if nota.descricao %}
+            <div class="divider"></div>
+            <div class="secao">
+                <span class="secao-titulo">📋 Descrição / Observações</span>
+                <span class="secao-valor">{{ nota.descricao }}</span>
+            </div>
+            {% endif %}
+
+            {% if nota.faturamento_id %}
+            <div class="secao">
+                <span class="secao-titulo">🔗 Referência</span>
+                <span class="secao-valor" style="font-size:0.85rem;color:#6b7280;">
+                    Gerada a partir do faturamento #{{ nota.faturamento_id }}
+                </span>
+            </div>
+            {% endif %}
+
+            <div class="divider"></div>
+
+            <div class="valor-box">
+                <span class="valor-label">Valor Total</span>
+                <span class="valor-num">R$ {{ "%.2f"|format(nota.valor) }}</span>
+            </div>
+
+        </div>
+
+        <!-- Rodapé -->
+        <div class="doc-footer">
+            <p>
+                Documento interno gerado em {{ nota.created_at }} pelo sistema Controle Financeiro.<br>
+                Este documento <strong>não tem validade fiscal oficial</strong>. A integração com sistemas de emissão de notas fiscais será implementada em etapas futuras.<br>
+                Para fins fiscais, consulte um contador ou use o sistema oficial da sua prefeitura.
+            </p>
+        </div>
+
+    </div>
+</div>
+
+</body>
+</html>

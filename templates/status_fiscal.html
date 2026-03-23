@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Status Fiscal — Financeiro</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<div class="app-wrapper">
+
+<nav class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+        <span class="sidebar-brand-logo">💰</span>
+        <span class="sidebar-brand-name">Financeiro</span>
+        <button class="sidebar-close-btn" onclick="sidebarToggle()">✕</button>
+    </div>
+    <ul class="sidebar-nav">
+        <li><span class="sidebar-section-label">Principal</span></li>
+        <li><a href="/" class="sidebar-link"><span class="sidebar-icon">🏠</span>Dashboard</a></li>
+        <li><a href="/inteligencia" class="sidebar-link"><span class="sidebar-icon">💡</span>Inteligência</a></li>
+        <li><a href="/relatorio" class="sidebar-link"><span class="sidebar-icon">📊</span>Relatório</a></li>
+        <li><span class="sidebar-section-label">Financeiro</span></li>
+        <li><a href="/gestao" class="sidebar-link"><span class="sidebar-icon">👥</span>Gestão</a></li>
+        <li><a href="/notas" class="sidebar-link"><span class="sidebar-icon">🧾</span>Notas Fiscais</a></li>
+        <li><a href="/recorrentes" class="sidebar-link"><span class="sidebar-icon">🔄</span>Recorrentes{% if rec_pendentes_qtd|default(0) > 0 %}<span class="badge-nav">{{ rec_pendentes_qtd }}</span>{% endif %}</a></li>
+        <li><span class="sidebar-section-label">Ferramentas</span></li>
+        <li><a href="/contador" class="sidebar-link"><span class="sidebar-icon">🔢</span>Contador</a></li>
+        <li><a href="/busca" class="sidebar-link"><span class="sidebar-icon">🔍</span>Busca</a></li>
+        <li><a href="/importar" class="sidebar-link"><span class="sidebar-icon">📥</span>Importar CSV</a></li>
+        <li><span class="sidebar-section-label">Sistema</span></li>
+        <li><a href="/sistema/backup" class="sidebar-link"><span class="sidebar-icon">💾</span>Backup</a></li>
+        <li><a href="/configuracao-fiscal" class="sidebar-link ativo"><span class="sidebar-icon">⚙</span>Config. Fiscal</a></li>
+        <li><a href="/backup" class="sidebar-link"><span class="sidebar-icon">⬇</span>Baixar Backup</a></li>
+    </ul>
+</nav>
+
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="sidebarToggle()"></div>
+
+<div class="page-wrap">
+<header class="topbar">
+    <button class="hamburger-btn" onclick="sidebarToggle()">&#9776;</button>
+    <span class="topbar-title">📋 Status Fiscal</span>
+    <div class="topbar-actions">
+        
+    </div>
+</header>
+
+<main>
+    {% with msgs = get_flashed_messages(with_categories=true) %}{% if msgs %}
+    <div id="flash-data" style="display:none;">
+        {% for cat, msg in msgs %}
+        <span data-cat="{{ cat }}" data-msg="{{ msg }}"></span>
+        {% endfor %}
+    </div>
+    {% endif %}{% endwith %}
+
+
+    <div class="cf-header" style="margin-bottom:16px;">
+        <h2 class="cf-titulo">📋 Status Fiscal das Notas</h2>
+        <p class="cf-subtitulo">Acompanhe o status de integração de cada nota fiscal no sistema.</p>
+    </div>
+
+    <!-- Aviso -->
+    <div class="aviso-simulacao" style="background:#fff7ed;border-left-color:#f97316;">
+        ⚠ <strong>Emissão oficial ainda não ativada.</strong> Fluxo atual em modo de preparação/simulação. Nenhuma API externa é acionada.
+    </div>
+
+    <!-- Alerta de configuração incompleta -->
+    {% if campos_faltando %}
+    <div class="integ-alerta-config">
+        <strong>⚠ Configuração fiscal incompleta.</strong> Preencha os dados do emissor antes de preparar ou simular envios:
+        <ul>{% for c in campos_faltando %}<li>{{ c }}</li>{% endfor %}</ul>
+        <a href="/configuracao-fiscal" class="fiscal-link">→ Completar configuração</a>
+    </div>
+    {% endif %}
+
+    <!-- Cards de contadores -->
+    {% if contadores %}
+    <div class="integ-contadores" style="margin-bottom:20px;">
+        {% for status, qtd in contadores.items() %}
+        {% set info = LABEL_INTEGRACAO.get(status, ('⬜', status, 'integ-nao-enviada')) %}
+        <div class="integ-contador-item {{ info[2] }}">
+            <span class="integ-contador-icon">{{ info[0] }}</span>
+            <span class="integ-contador-num">{{ qtd }}</span>
+            <span class="integ-contador-label">{{ info[1] }}</span>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Tabela de notas com status fiscal -->
+    <div class="intel-card" style="overflow:auto;">
+        <h3 class="intel-titulo">🗂 Todas as Notas — Status de Integração</h3>
+
+        {% if notas %}
+        <table style="font-size:0.82rem;width:100%;border-collapse:collapse;">
+            <thead>
+                <tr>
+                    <th style="background:#1a1f36;color:#fff;padding:10px 12px;text-align:left;">Número</th>
+                    <th style="background:#1a1f36;color:#fff;padding:10px 12px;text-align:left;">Data</th>
+                    <th style="background:#1a1f36;color:#fff;padding:10px 12px;text-align:left;">Cliente</th>
+                    <th style="background:#1a1f36;color:#fff;padding:10px 12px;text-align:right;">Valor</th>
+                    <th style="background:#1a1f36;color:#fff;padding:10px 12px;text-align:left;">Status Interno</th>
+                    <th style="background:#1a1f36;color:#fff;padding:10px 12px;text-align:left;">Status Integração</th>
+                    <th style="background:#1a1f36;color:#fff;padding:10px 12px;text-align:left;">Último Evento</th>
+                    <th style="background:#1a1f36;color:#fff;padding:10px 12px;text-align:left;"></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for n in notas %}
+                {% set si = n.status_integracao or 'nao_enviada' %}
+                {% set info = LABEL_INTEGRACAO.get(si, ('⬜', si, 'integ-nao-enviada')) %}
+                {% set ev = ultimos_eventos.get(n.id) %}
+                <tr style="border-bottom:1px solid #f0f0f0;"
+                    class="{% if si == 'rejeitada' %}sf-row-rejeitada{% elif si == 'pronta_para_envio' %}sf-row-pronta{% elif si == 'autorizada' %}sf-row-autorizada{% endif %}">
+                    <td style="padding:9px 12px;"><strong>{{ n.numero_nota }}</strong></td>
+                    <td style="padding:9px 12px;color:#666;">{{ n.data_emissao }}</td>
+                    <td style="padding:9px 12px;">{{ n.cliente_nome }}</td>
+                    <td style="padding:9px 12px;text-align:right;font-weight:700;color:#16a34a;">R$ {{ "%.2f"|format(n.valor) }}</td>
+                    <td style="padding:9px 12px;">
+                        {% if n.status == 'emitida' %}
+                        <span class="badge-nf badge-nf-emitida">✅ Emitida</span>
+                        {% elif n.status == 'rascunho' %}
+                        <span class="badge-nf badge-nf-rascunho">📝 Rascunho</span>
+                        {% else %}
+                        <span class="badge-nf badge-nf-cancelada">❌ Cancelada</span>
+                        {% endif %}
+                    </td>
+                    <td style="padding:9px 12px;">
+                        <span class="integ-badge {{ info[2] }}">{{ info[0] }} {{ info[1] }}</span>
+                    </td>
+                    <td style="padding:9px 12px;color:#9ca3af;font-size:0.75rem;">
+                        {% if ev %}{{ ev.created_at[:16] }}{% else %}—{% endif %}
+                    </td>
+                    <td style="padding:9px 12px;white-space:nowrap;">
+                        <a href="/notas/ver/{{ n.id }}" class="btn-acao btn-editar" title="Ver nota">👁</a>
+                        <a href="/notas/eventos/{{ n.id }}" class="btn-acao" style="background:#ede9fe;color:#7c3aed;" title="Ver eventos">📋</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="empty-msg">Nenhuma nota cadastrada ainda. <a href="/notas">Criar primeira nota →</a></p>
+        {% endif %}
+    </div>
+
+    <!-- Links de ação -->
+    <div style="display:flex;gap:12px;margin-top:16px;flex-wrap:wrap;">
+        <a href="/integracao-fiscal" class="btn" style="background:#1a1f36;color:#fff;text-decoration:none;display:inline-block;">⚙ Configurar Integração</a>
+        <a href="/configuracao-fiscal" class="btn" style="background:#f0f9ff;color:#0369a1;text-decoration:none;display:inline-block;border:1px solid #bae6fd;">🏛 Dados do Emissor</a>
+        <a href="/notas" class="btn" style="background:#f0fdf4;color:#15803d;text-decoration:none;display:inline-block;border:1px solid #bbf7d0;">📄 Gerenciar Notas</a>
+    </div>
+
+
+</main>
+<footer class="page-footer">
+    <p>Controle Financeiro — simples e eficiente</p>
+</footer>
+</div><!-- .page-wrap -->
+</div><!-- .app-wrapper -->
+
+
+
+<div class="toast-container" id="toast-container"></div>
+<script src="/static/app.js"></script>
+</body>
+</html>

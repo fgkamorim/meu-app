@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Busca — Financeiro</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<div class="app-wrapper">
+
+<nav class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+        <span class="sidebar-brand-logo">💰</span>
+        <span class="sidebar-brand-name">Financeiro</span>
+        <button class="sidebar-close-btn" onclick="sidebarToggle()">✕</button>
+    </div>
+    <ul class="sidebar-nav">
+        <li><span class="sidebar-section-label">Principal</span></li>
+        <li><a href="/" class="sidebar-link"><span class="sidebar-icon">🏠</span>Dashboard</a></li>
+        <li><a href="/inteligencia" class="sidebar-link"><span class="sidebar-icon">💡</span>Inteligência</a></li>
+        <li><a href="/relatorio" class="sidebar-link"><span class="sidebar-icon">📊</span>Relatório</a></li>
+        <li><span class="sidebar-section-label">Financeiro</span></li>
+        <li><a href="/gestao" class="sidebar-link"><span class="sidebar-icon">👥</span>Gestão</a></li>
+        <li><a href="/notas" class="sidebar-link"><span class="sidebar-icon">🧾</span>Notas Fiscais</a></li>
+        <li><a href="/recorrentes" class="sidebar-link"><span class="sidebar-icon">🔄</span>Recorrentes
+            {% if rec_pendentes_qtd|default(0) > 0 %}<span class="badge-nav">{{ rec_pendentes_qtd }}</span>{% endif %}</a></li>
+        <li><span class="sidebar-section-label">Ferramentas</span></li>
+        <li><a href="/contador" class="sidebar-link"><span class="sidebar-icon">🔢</span>Contador</a></li>
+        <li><a href="/busca" class="sidebar-link ativo"><span class="sidebar-icon">🔍</span>Busca</a></li>
+        <li><span class="sidebar-section-label">Sistema</span></li>
+        <li><a href="/sistema/backup" class="sidebar-link"><span class="sidebar-icon">💾</span>Backup</a></li>
+        <li><a href="/configuracao-fiscal" class="sidebar-link"><span class="sidebar-icon">⚙</span>Config. Fiscal</a></li>
+        <li><a href="/backup" class="sidebar-link"><span class="sidebar-icon">⬇</span>Baixar Backup</a></li>
+    </ul>
+</nav>
+
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="sidebarToggle()"></div>
+
+<div class="page-wrap">
+<header class="topbar">
+    <button class="hamburger-btn" onclick="sidebarToggle()">&#9776;</button>
+    <span class="topbar-title">🔍 Pesquisa Global</span>
+    <div class="topbar-actions">
+        
+    </div>
+</header>
+
+<main>
+
+    {% with msgs = get_flashed_messages(with_categories=true) %}{% if msgs %}
+    <div id="flash-data" style="display:none;">
+        {% for cat, msg in msgs %}
+        <span data-cat="{{ cat }}" data-msg="{{ msg }}"></span>
+        {% endfor %}
+    </div>
+    {% endif %}{% endwith %}
+
+
+    <h2 class="sec-titulo" style="margin-top:0;">🔍 Pesquisa Global</h2>
+
+    <!-- Formulário de busca -->
+    <form method="GET" action="/busca" class="busca-form">
+        <div class="busca-input-wrap">
+            <input type="text" name="q" value="{{ q }}" placeholder="Buscar por descrição, cliente, serviço, número da nota, meta..."
+                   class="busca-input" autofocus autocomplete="off">
+            <button type="submit" class="busca-btn">Buscar</button>
+            {% if q %}
+            <a href="/busca" class="busca-limpar">✕ Limpar</a>
+            {% endif %}
+        </div>
+    </form>
+
+    {% if q %}
+
+    <!-- Contagem de resultados -->
+    <div class="busca-sumario">
+        {% if total > 0 %}
+        <span class="busca-total">{{ total }} resultado(s) para <strong>"{{ q }}"</strong></span>
+        {% else %}
+        <span class="busca-vazio">Nenhum resultado encontrado para <strong>"{{ q }}"</strong>.</span>
+        {% endif %}
+    </div>
+
+    <div class="busca-resultados">
+
+        <!-- Lançamentos Financeiros -->
+        {% if resultados.lancamentos %}
+        <div class="busca-grupo">
+            <div class="busca-grupo-titulo">
+                💸 Lançamentos Financeiros
+                <span class="badge-count">{{ resultados.lancamentos|length }}</span>
+            </div>
+            <table class="tabela-lancamentos" style="font-size:0.83rem;">
+                <thead>
+                    <tr>
+                        <th>Data</th>
+                        <th>Tipo</th>
+                        <th>Descrição</th>
+                        <th>Categoria</th>
+                        <th>Valor</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for l in resultados.lancamentos %}
+                    <tr class="row-{{ l.tipo }}">
+                        <td>{{ l.data }}</td>
+                        <td>
+                            {% if l.tipo == "entrada" %}<span class="badge badge-entrada">Entrada</span>
+                            {% else %}<span class="badge badge-despesa">Despesa</span>{% endif %}
+                        </td>
+                        <td>{{ l.descricao }}</td>
+                        <td>{{ l.categoria|capitalize if l.categoria else "—" }}</td>
+                        <td class="valor-cell {% if l.tipo == 'entrada' %}val-entrada{% else %}val-despesa{% endif %}">
+                            R$ {{ "%.2f"|format(l.valor) }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            <a href="/?periodo=todos" class="busca-ver-mais">Ver todos os lançamentos →</a>
+        </div>
+        {% endif %}
+
+        <!-- Clientes -->
+        {% if resultados.clientes %}
+        <div class="busca-grupo">
+            <div class="busca-grupo-titulo">
+                👥 Clientes
+                <span class="badge-count">{{ resultados.clientes|length }}</span>
+            </div>
+            <div class="busca-cards-inline">
+                {% for c in resultados.clientes %}
+                <div class="busca-card">
+                    <span class="busca-card-titulo">{{ c.nome }}</span>
+                    <span class="busca-card-sub">
+                        {% if c.tipo == 'pj' %}Pessoa Jurídica{% else %}Pessoa Física{% endif %}
+                        {% if c.email %} · {{ c.email }}{% endif %}
+                        {% if c.telefone %} · {{ c.telefone }}{% endif %}
+                    </span>
+                </div>
+                {% endfor %}
+            </div>
+            <a href="/gestao#sec-clientes" class="busca-ver-mais">Ver clientes em Gestão →</a>
+        </div>
+        {% endif %}
+
+        <!-- Serviços -->
+        {% if resultados.servicos %}
+        <div class="busca-grupo">
+            <div class="busca-grupo-titulo">
+                🛠 Serviços
+                <span class="badge-count">{{ resultados.servicos|length }}</span>
+            </div>
+            <div class="busca-cards-inline">
+                {% for s in resultados.servicos %}
+                <div class="busca-card">
+                    <span class="busca-card-titulo">{{ s.nome }}</span>
+                    <span class="busca-card-sub">
+                        Valor padrão: <strong class="verde">R$ {{ "%.2f"|format(s.valor_padrao) }}</strong>
+                        {% if s.descricao %} · {{ s.descricao }}{% endif %}
+                    </span>
+                </div>
+                {% endfor %}
+            </div>
+            <a href="/gestao#sec-servicos" class="busca-ver-mais">Ver serviços em Gestão →</a>
+        </div>
+        {% endif %}
+
+        <!-- Faturamentos -->
+        {% if resultados.faturamentos %}
+        <div class="busca-grupo">
+            <div class="busca-grupo-titulo">
+                💳 Faturamentos
+                <span class="badge-count">{{ resultados.faturamentos|length }}</span>
+            </div>
+            <table class="tabela-lancamentos" style="font-size:0.83rem;">
+                <thead>
+                    <tr>
+                        <th>Data</th>
+                        <th>Cliente</th>
+                        <th>Serviço</th>
+                        <th>Valor</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for f in resultados.faturamentos %}
+                    <tr class="{% if f.status == 'pago' %}row-pago{% endif %}">
+                        <td>{{ f.data }}</td>
+                        <td>{{ f.cliente_nome }}</td>
+                        <td>{{ f.servico_nome }}</td>
+                        <td class="valor-cell val-entrada">R$ {{ "%.2f"|format(f.valor) }}</td>
+                        <td>
+                            {% if f.status == 'pago' %}<span class="badge-fat-pago">✓ Pago</span>
+                            {% else %}<span class="badge-fat-pendente">Pendente</span>{% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            <a href="/gestao#sec-faturamentos" class="busca-ver-mais">Ver faturamentos em Gestão →</a>
+        </div>
+        {% endif %}
+
+        <!-- Notas Fiscais -->
+        {% if resultados.notas %}
+        <div class="busca-grupo">
+            <div class="busca-grupo-titulo">
+                📄 Notas Fiscais
+                <span class="badge-count">{{ resultados.notas|length }}</span>
+            </div>
+            <table class="tabela-lancamentos" style="font-size:0.83rem;">
+                <thead>
+                    <tr>
+                        <th>Número</th>
+                        <th>Data</th>
+                        <th>Cliente</th>
+                        <th>Serviço</th>
+                        <th>Valor</th>
+                        <th>Status</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for n in resultados.notas %}
+                    <tr>
+                        <td><strong>{{ n.numero_nota }}</strong></td>
+                        <td>{{ n.data_emissao }}</td>
+                        <td>{{ n.cliente_nome }}</td>
+                        <td>{{ n.servico_nome }}</td>
+                        <td class="valor-cell val-entrada">R$ {{ "%.2f"|format(n.valor) }}</td>
+                        <td>
+                            {% if n.status == 'emitida' %}<span class="badge-nf badge-nf-emitida">✅ Emitida</span>
+                            {% elif n.status == 'rascunho' %}<span class="badge-nf badge-nf-rascunho">📝 Rascunho</span>
+                            {% else %}<span class="badge-nf badge-nf-cancelada">❌ Cancelada</span>{% endif %}
+                        </td>
+                        <td><a href="/notas/ver/{{ n.id }}" class="btn-acao btn-editar">👁 Ver</a></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            <a href="/notas" class="busca-ver-mais">Ver todas as notas →</a>
+        </div>
+        {% endif %}
+
+        <!-- Metas -->
+        {% if resultados.metas %}
+        <div class="busca-grupo">
+            <div class="busca-grupo-titulo">
+                🎯 Metas Financeiras
+                <span class="badge-count">{{ resultados.metas|length }}</span>
+            </div>
+            <div class="busca-cards-inline">
+                {% for m in resultados.metas %}
+                {% set pct = [(m.valor_atual / m.valor_objetivo * 100)|round(1), 100]|min if m.valor_objetivo > 0 else 0 %}
+                <div class="busca-card">
+                    <span class="busca-card-titulo">{{ m.nome }}</span>
+                    <span class="busca-card-sub">
+                        R$ {{ "%.2f"|format(m.valor_atual) }} / R$ {{ "%.2f"|format(m.valor_objetivo) }}
+                        · {{ pct }}%
+                        {% if m.valor_atual >= m.valor_objetivo and m.valor_objetivo > 0 %}
+                        <span style="color:#16a34a;font-weight:700;">✓ Concluída</span>
+                        {% endif %}
+                    </span>
+                    <div class="meta-bar" style="height:5px;margin-top:5px;">
+                        <div class="meta-bar-fill" style="width:{{ pct }}%;background:#16a34a;height:5px;border-radius:3px;"></div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            <a href="/#sec-metas" class="busca-ver-mais">Ver metas no Dashboard →</a>
+        </div>
+        {% endif %}
+
+        {% if total == 0 %}
+        <div class="busca-vazio-block">
+            <p>😕 Nenhum registro encontrado para "<strong>{{ q }}</strong>".</p>
+            <p style="font-size:0.85rem;color:#999;margin-top:8px;">Tente termos diferentes, nome de cliente, serviço ou número da nota.</p>
+        </div>
+        {% endif %}
+
+    </div>
+
+    {% endif %}
+
+
+</main>
+<footer class="page-footer">
+    <p>Controle Financeiro — simples e eficiente</p>
+</footer>
+</div><!-- .page-wrap -->
+</div><!-- .app-wrapper -->
+
+<div class="toast-container" id="toast-container"></div>
+<script src="/static/app.js"></script>
+
+</body>
+</html>

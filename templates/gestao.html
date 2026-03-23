@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestão — Financeiro</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<div class="app-wrapper">
+
+<nav class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+        <span class="sidebar-brand-logo">💰</span>
+        <span class="sidebar-brand-name">Financeiro</span>
+        <button class="sidebar-close-btn" onclick="sidebarToggle()">✕</button>
+    </div>
+    <ul class="sidebar-nav">
+        <li><span class="sidebar-section-label">Principal</span></li>
+        <li><a href="/" class="sidebar-link"><span class="sidebar-icon">🏠</span>Dashboard</a></li>
+        <li><a href="/inteligencia" class="sidebar-link"><span class="sidebar-icon">💡</span>Inteligência</a></li>
+        <li><a href="/relatorio" class="sidebar-link"><span class="sidebar-icon">📊</span>Relatório</a></li>
+        <li><span class="sidebar-section-label">Financeiro</span></li>
+        <li><a href="/gestao" class="sidebar-link ativo"><span class="sidebar-icon">👥</span>Gestão</a></li>
+        <li><a href="/notas" class="sidebar-link"><span class="sidebar-icon">🧾</span>Notas Fiscais</a></li>
+        <li><a href="/recorrentes" class="sidebar-link"><span class="sidebar-icon">🔄</span>Recorrentes
+            {% if rec_pendentes_qtd|default(0) > 0 %}<span class="badge-nav">{{ rec_pendentes_qtd }}</span>{% endif %}</a></li>
+        <li><span class="sidebar-section-label">Ferramentas</span></li>
+        <li><a href="/contador" class="sidebar-link"><span class="sidebar-icon">🔢</span>Contador</a></li>
+        <li><a href="/busca" class="sidebar-link"><span class="sidebar-icon">🔍</span>Busca</a></li>
+        <li><a href="/importar" class="sidebar-link"><span class="sidebar-icon">📥</span>Importar CSV</a></li>
+        <li><span class="sidebar-section-label">Sistema</span></li>
+        <li><a href="/sistema/backup" class="sidebar-link"><span class="sidebar-icon">💾</span>Backup</a></li>
+        <li><a href="/configuracao-fiscal" class="sidebar-link"><span class="sidebar-icon">⚙</span>Config. Fiscal</a></li>
+        <li><a href="/backup" class="sidebar-link"><span class="sidebar-icon">⬇</span>Baixar Backup</a></li>
+    </ul>
+</nav>
+
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="sidebarToggle()"></div>
+
+<div class="page-wrap">
+<header class="topbar">
+    <button class="hamburger-btn" onclick="sidebarToggle()">&#9776;</button>
+    <span class="topbar-title">👥 Gestão — Clientes, Serviços e Faturamento</span>
+    <div class="topbar-actions">
+        <a href="/gestao#sec-clientes" class="topbar-btn topbar-btn-blue">+ Cliente</a><a href="/gestao#sec-faturamentos" class="topbar-btn topbar-btn-purple">+ Faturamento</a>
+    </div>
+</header>
+
+<main>
+
+    {% with msgs = get_flashed_messages(with_categories=true) %}{% if msgs %}
+    <div id="flash-data" style="display:none;">
+        {% for cat, msg in msgs %}
+        <span data-cat="{{ cat }}" data-msg="{{ msg }}"></span>
+        {% endfor %}
+    </div>
+    {% endif %}{% endwith %}
+
+
+    <!-- Mensagens Flash (Toasts) -->
+    {% with msgs = get_flashed_messages(with_categories=true) %}{% if msgs %}
+    <div id="flash-data" style="display:none;">
+        {% for cat, msg in msgs %}
+        <span data-cat="{{ cat }}" data-msg="{{ msg }}"></span>
+        {% endfor %}
+    </div>
+    {% endif %}{% endwith %}
+
+<!-- ══════════════════════════════════════════════════════
+     CLIENTES
+══════════════════════════════════════════════════════ -->
+<section id="sec-clientes">
+    <h2 class="sec-titulo">👥 Clientes</h2>
+
+    <div class="gestao-grid">
+
+        <!-- Formulário -->
+        <div class="intel-card">
+            <h3 class="intel-titulo" style="font-size:1rem;">Novo Cliente</h3>
+            <form method="POST" action="/clientes/adicionar">
+
+                <div class="form-group">
+                    <label>Nome *</label>
+                    <input type="text" name="nome" required placeholder="Nome completo ou razão social">
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Tipo</label>
+                        <select name="tipo">
+                            <option value="pf">Pessoa Física</option>
+                            <option value="pj">Pessoa Jurídica</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>CPF / CNPJ</label>
+                        <input type="text" name="cpf_cnpj" placeholder="000.000.000-00">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>E-mail</label>
+                        <input type="email" name="email" placeholder="email@exemplo.com">
+                    </div>
+                    <div class="form-group">
+                        <label>Telefone</label>
+                        <input type="text" name="telefone" placeholder="(00) 00000-0000">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Observações</label>
+                    <input type="text" name="observacoes" placeholder="Opcional">
+                </div>
+
+                <button type="submit" class="btn" style="background:#1a1f36;color:#fff;">+ Adicionar Cliente</button>
+            </form>
+        </div>
+
+        <!-- Lista -->
+        <div class="intel-card">
+            <h3 class="intel-titulo" style="font-size:1rem;">Clientes Cadastrados
+                <span class="badge-count">{{ clientes|length }}</span>
+            </h3>
+            {% if clientes %}
+            <div class="gestao-lista">
+                {% for c in clientes %}
+                <div class="gestao-item">
+                    <div class="gestao-item-info">
+                        <span class="gestao-item-nome">{{ c.nome }}</span>
+                        <span class="gestao-item-sub">
+                            <span class="badge-tipo {% if c.tipo == 'pj' %}badge-pj{% else %}badge-pf{% endif %}">
+                                {{ 'PJ' if c.tipo == 'pj' else 'PF' }}
+                            </span>
+                            {% if c.cpf_cnpj %}<span>{{ c.cpf_cnpj }}</span>{% endif %}
+                            {% if c.email %}<span>{{ c.email }}</span>{% endif %}
+                            {% if c.telefone %}<span>{{ c.telefone }}</span>{% endif %}
+                        </span>
+                        {% if c.observacoes %}<span class="gestao-obs">{{ c.observacoes }}</span>{% endif %}
+                    </div>
+                    <div class="gestao-item-acoes">
+                        <a href="/clientes/editar/{{ c.id }}" class="btn-acao btn-editar">✏</a>
+                        <a href="/clientes/excluir/{{ c.id }}" class="btn-acao btn-excluir"
+                           onclick="return confirm('Excluir cliente {{ c.nome }}?')">✕</a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="empty-msg">Nenhum cliente cadastrado ainda.</p>
+            {% endif %}
+        </div>
+
+    </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════
+     SERVIÇOS
+══════════════════════════════════════════════════════ -->
+<section id="sec-servicos">
+    <h2 class="sec-titulo">🛠 Serviços</h2>
+
+    <div class="gestao-grid">
+
+        <!-- Formulário -->
+        <div class="intel-card">
+            <h3 class="intel-titulo" style="font-size:1rem;">Novo Serviço</h3>
+            <form method="POST" action="/servicos/adicionar">
+
+                <div class="form-group">
+                    <label>Nome do Serviço *</label>
+                    <input type="text" name="nome" required placeholder="Ex: Consultoria, Desenvolvimento...">
+                </div>
+
+                <div class="form-group">
+                    <label>Descrição</label>
+                    <input type="text" name="descricao" placeholder="Breve descrição">
+                </div>
+
+                <div class="form-group">
+                    <label>Valor Padrão (R$)</label>
+                    <input type="number" name="valor_padrao" step="0.01" min="0" placeholder="0,00">
+                </div>
+
+                <button type="submit" class="btn" style="background:#1a1f36;color:#fff;">+ Adicionar Serviço</button>
+            </form>
+        </div>
+
+        <!-- Lista -->
+        <div class="intel-card">
+            <h3 class="intel-titulo" style="font-size:1rem;">Serviços Cadastrados
+                <span class="badge-count">{{ servicos|length }}</span>
+            </h3>
+            {% if servicos %}
+            <div class="gestao-lista">
+                {% for s in servicos %}
+                <div class="gestao-item">
+                    <div class="gestao-item-info">
+                        <span class="gestao-item-nome">{{ s.nome }}</span>
+                        <span class="gestao-item-sub">
+                            {% if s.descricao %}<span>{{ s.descricao }}</span>{% endif %}
+                            <span class="verde" style="font-weight:700;">R$ {{ "%.2f"|format(s.valor_padrao) }}</span>
+                        </span>
+                    </div>
+                    <div class="gestao-item-acoes">
+                        <a href="/servicos/editar/{{ s.id }}" class="btn-acao btn-editar">✏</a>
+                        <a href="/servicos/excluir/{{ s.id }}" class="btn-acao btn-excluir"
+                           onclick="return confirm('Excluir serviço {{ s.nome }}?')">✕</a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="empty-msg">Nenhum serviço cadastrado ainda.</p>
+            {% endif %}
+        </div>
+
+    </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════
+     FATURAMENTO
+══════════════════════════════════════════════════════ -->
+<section id="sec-faturamentos">
+    <h2 class="sec-titulo">💳 Faturamento</h2>
+
+    <!-- Cards de resumo -->
+    <div class="fat-resumo-cards">
+        <div class="fat-resumo-card fat-pendente">
+            <span class="fat-resumo-label">Total Pendente</span>
+            <span class="fat-resumo-valor">R$ {{ "%.2f"|format(total_pendente) }}</span>
+        </div>
+        <div class="fat-resumo-card fat-pago">
+            <span class="fat-resumo-label">Total Recebido</span>
+            <span class="fat-resumo-valor">R$ {{ "%.2f"|format(total_pago) }}</span>
+        </div>
+    </div>
+
+    <div class="gestao-grid">
+
+        <!-- Formulário -->
+        <div class="intel-card">
+            <h3 class="intel-titulo" style="font-size:1rem;">Novo Faturamento</h3>
+
+            {% if not clientes or not servicos %}
+            <p style="color:#e67e22;font-size:0.85rem;">⚠ Cadastre pelo menos um cliente e um serviço antes de registrar um faturamento.</p>
+            {% else %}
+            <form method="POST" action="/faturamentos/adicionar" id="form-fat">
+
+                <div class="form-group">
+                    <label>Cliente *</label>
+                    <select name="cliente_id" required>
+                        <option value="">— Selecione —</option>
+                        {% for c in clientes %}
+                        <option value="{{ c.id }}">{{ c.nome }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Serviço *</label>
+                    <select name="servico_id" id="sel-servico" required>
+                        <option value="">— Selecione —</option>
+                        {% for s in servicos %}
+                        <option value="{{ s.id }}" data-valor="{{ s.valor_padrao }}">{{ s.nome }}</option>
+                        {% endfor %}
+                    </select>
+                    <span class="form-hint">Ao selecionar, o valor padrão é preenchido automaticamente.</span>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Valor (R$) *</label>
+                        <input type="number" name="valor" id="inp-valor" step="0.01" min="0.01" required placeholder="0,00">
+                    </div>
+                    <div class="form-group">
+                        <label>Data *</label>
+                        <input type="date" name="data" required value="{{ hoje }}">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Descrição (opcional)</label>
+                    <input type="text" name="descricao" placeholder="Detalhes adicionais">
+                </div>
+
+                <button type="submit" class="btn" style="background:#1a1f36;color:#fff;">+ Registrar Faturamento</button>
+            </form>
+
+            <script>
+            document.getElementById('sel-servico').addEventListener('change', function() {
+                var opt = this.options[this.selectedIndex];
+                var val = opt.getAttribute('data-valor');
+                if (val && parseFloat(val) > 0) {
+                    document.getElementById('inp-valor').value = parseFloat(val).toFixed(2);
+                }
+            });
+            </script>
+            {% endif %}
+        </div>
+
+        <!-- Lista de faturamentos -->
+        <div class="intel-card" style="overflow:auto;">
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px;">
+                <h3 class="intel-titulo" style="font-size:1rem;margin:0;">Faturamentos Registrados
+                    <span class="badge-count">{{ faturamentos|length }}</span>
+                </h3>
+            </div>
+
+            <!-- Filtros de faturamentos -->
+            <form method="GET" action="/gestao" class="filtros-avancados-bar" style="margin-bottom:12px;">
+                <select name="fat_cliente" class="filtro-select" onchange="this.form.submit()">
+                    <option value="">Cliente: todos</option>
+                    {% for c in clientes %}
+                    <option value="{{ c.id }}" {% if fat_cliente == c.id|string %}selected{% endif %}>{{ c.nome }}</option>
+                    {% endfor %}
+                </select>
+                <select name="fat_servico" class="filtro-select" onchange="this.form.submit()">
+                    <option value="">Serviço: todos</option>
+                    {% for s in servicos %}
+                    <option value="{{ s.id }}" {% if fat_servico == s.id|string %}selected{% endif %}>{{ s.nome }}</option>
+                    {% endfor %}
+                </select>
+                <select name="fat_status" class="filtro-select" onchange="this.form.submit()">
+                    <option value="">Status: todos</option>
+                    <option value="pendente" {% if fat_status == 'pendente' %}selected{% endif %}>Pendentes</option>
+                    <option value="pago" {% if fat_status == 'pago' %}selected{% endif %}>Pagos</option>
+                </select>
+                <select name="fat_periodo" class="filtro-select" onchange="this.form.submit()">
+                    <option value="todos" {% if fat_periodo == 'todos' %}selected{% endif %}>Período: todos</option>
+                    <option value="hoje" {% if fat_periodo == 'hoje' %}selected{% endif %}>Hoje</option>
+                    <option value="7dias" {% if fat_periodo == '7dias' %}selected{% endif %}>7 dias</option>
+                    <option value="30dias" {% if fat_periodo == '30dias' %}selected{% endif %}>30 dias</option>
+                    <option value="mes" {% if fat_periodo == 'mes' %}selected{% endif %}>Mês atual</option>
+                </select>
+                {% if fat_cliente or fat_servico or fat_status or fat_periodo != 'todos' %}
+                <a href="/gestao#sec-faturamentos" class="filtro-limpar">✕ Limpar</a>
+                {% endif %}
+            </form>
+            {% if faturamentos %}
+            <table class="tabela-lancamentos" style="font-size:0.83rem;">
+                <thead>
+                    <tr>
+                        <th>Data</th>
+                        <th>Cliente</th>
+                        <th>Serviço</th>
+                        <th>Valor</th>
+                        <th>Status</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for f in faturamentos %}
+                    <tr class="{% if f.status == 'pago' %}row-pago{% endif %}">
+                        <td>{{ f.data }}</td>
+                        <td>{{ f.cliente_nome }}</td>
+                        <td>{{ f.servico_nome }}{% if f.descricao %}<br><small style="color:#999">{{ f.descricao }}</small>{% endif %}</td>
+                        <td class="valor-cell val-entrada">R$ {{ "%.2f"|format(f.valor) }}</td>
+                        <td>
+                            {% if f.status == 'pago' %}
+                            <span class="badge-fat-pago">✓ Pago</span>
+                            {% else %}
+                            <span class="badge-fat-pendente">Pendente</span>
+                            {% endif %}
+                        </td>
+                        <td style="white-space:nowrap;">
+                            {% if f.status == 'pendente' %}
+                            <a href="/faturamentos/pagar/{{ f.id }}" class="btn-acao btn-pagar"
+                               onclick="return confirm('Marcar como pago e registrar entrada financeira?')">✓ Pagar</a>
+                            {% endif %}
+                            {% if f.status == 'pago' %}
+                                {% if f.id in fat_com_nota %}
+                                <a href="/notas/ver/{{ fat_com_nota[f.id] }}" class="btn-acao" style="background:#e0e7ff;color:#3730a3;" title="Ver Nota Fiscal vinculada">📄 Ver NF</a>
+                                {% else %}
+                                <a href="/notas/gerar/{{ f.id }}" class="btn-acao" style="background:#dbeafe;color:#1d4ed8;border:1px solid #bfdbfe;"
+                                   onclick="return confirm('Gerar nota fiscal para este faturamento?')" title="Gerar Nota Fiscal">📄 Gerar NF</a>
+                                {% endif %}
+                            {% endif %}
+                            <a href="/faturamentos/excluir/{{ f.id }}" class="btn-acao btn-excluir"
+                               onclick="return confirm('Excluir este faturamento?')">✕</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p class="empty-msg">Nenhum faturamento registrado ainda.</p>
+            {% endif %}
+        </div>
+
+    </div>
+</section>
+
+
+</main>
+<footer class="page-footer">
+    <p>Controle Financeiro — simples e eficiente</p>
+</footer>
+</div><!-- .page-wrap -->
+</div><!-- .app-wrapper -->
+
+<script>
+(function() {
+    function criarToast(msg, cat) {
+        var icons = { success: '✅', error: '❌', warning: '⚠️', info: 'ℹ️' };
+        var cont = document.getElementById('toast-container');
+        if (!cont) return;
+        var t = document.createElement('div');
+        t.className = 'toast toast-' + (cat || 'success');
+        t.innerHTML = '<span class="toast-icon">' + (icons[cat] || '✅') + '</span>' +
+                      '<span class="toast-msg">' + msg + '</span>' +
+                      '<button class="toast-close" onclick="this.parentElement.remove()" type="button">✕</button>';
+        cont.appendChild(t);
+        setTimeout(function() {
+            t.classList.add('toast-hide');
+            setTimeout(function() { if (t.parentElement) t.remove(); }, 380);
+        }, 4000);
+    }
+    var fd = document.getElementById('flash-data');
+    if (fd) {
+        fd.querySelectorAll('span[data-msg]').forEach(function(el) {
+            criarToast(el.dataset.msg, el.dataset.cat);
+        });
+    }
+})();
+</script>
+
+<div class="toast-container" id="toast-container"></div>
+<script src="/static/app.js"></script>
+
+</body>
+</html>

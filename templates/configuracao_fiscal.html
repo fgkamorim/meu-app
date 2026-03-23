@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Config. Fiscal — Financeiro</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<div class="app-wrapper">
+
+<nav class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+        <span class="sidebar-brand-logo">💰</span>
+        <span class="sidebar-brand-name">Financeiro</span>
+        <button class="sidebar-close-btn" onclick="sidebarToggle()">✕</button>
+    </div>
+    <ul class="sidebar-nav">
+        <li><span class="sidebar-section-label">Principal</span></li>
+        <li><a href="/" class="sidebar-link"><span class="sidebar-icon">🏠</span>Dashboard</a></li>
+        <li><a href="/inteligencia" class="sidebar-link"><span class="sidebar-icon">💡</span>Inteligência</a></li>
+        <li><a href="/relatorio" class="sidebar-link"><span class="sidebar-icon">📊</span>Relatório</a></li>
+        <li><span class="sidebar-section-label">Financeiro</span></li>
+        <li><a href="/gestao" class="sidebar-link"><span class="sidebar-icon">👥</span>Gestão</a></li>
+        <li><a href="/notas" class="sidebar-link"><span class="sidebar-icon">🧾</span>Notas Fiscais</a></li>
+        <li><a href="/recorrentes" class="sidebar-link"><span class="sidebar-icon">🔄</span>Recorrentes
+            {% if rec_pendentes_qtd|default(0) > 0 %}<span class="badge-nav">{{ rec_pendentes_qtd }}</span>{% endif %}</a></li>
+        <li><span class="sidebar-section-label">Ferramentas</span></li>
+        <li><a href="/contador" class="sidebar-link"><span class="sidebar-icon">🔢</span>Contador</a></li>
+        <li><a href="/busca" class="sidebar-link"><span class="sidebar-icon">🔍</span>Busca</a></li>
+        <li><a href="/importar" class="sidebar-link"><span class="sidebar-icon">📥</span>Importar CSV</a></li>
+        <li><span class="sidebar-section-label">Sistema</span></li>
+        <li><a href="/sistema/backup" class="sidebar-link"><span class="sidebar-icon">💾</span>Backup</a></li>
+        <li><a href="/configuracao-fiscal" class="sidebar-link ativo"><span class="sidebar-icon">⚙</span>Config. Fiscal</a></li>
+        <li><a href="/backup" class="sidebar-link"><span class="sidebar-icon">⬇</span>Baixar Backup</a></li>
+    </ul>
+</nav>
+
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="sidebarToggle()"></div>
+
+<div class="page-wrap">
+<header class="topbar">
+    <button class="hamburger-btn" onclick="sidebarToggle()">&#9776;</button>
+    <span class="topbar-title">⚙ Configuração Fiscal</span>
+    <div class="topbar-actions">
+        
+    </div>
+</header>
+
+<main>
+
+    {% with msgs = get_flashed_messages(with_categories=true) %}{% if msgs %}
+    <div id="flash-data" style="display:none;">
+        {% for cat, msg in msgs %}
+        <span data-cat="{{ cat }}" data-msg="{{ msg }}"></span>
+        {% endfor %}
+    </div>
+    {% endif %}{% endwith %}
+
+
+    <section class="cf-page">
+
+        <!-- Título da página -->
+        <div class="cf-header">
+            <h2 class="cf-titulo">🏛 Configuração Fiscal</h2>
+            <p class="cf-subtitulo">Cadastre os dados do emissor para preparar o sistema para futura integração de nota fiscal oficial no Brasil.</p>
+        </div>
+
+        {% if salvo %}
+        <div class="cf-alerta cf-alerta-ok">✅ Configuração fiscal salva com sucesso!</div>
+        {% endif %}
+
+        <div class="cf-grid">
+
+            <!-- Formulário de configuração -->
+            <div class="cf-form-card">
+                <h3 class="cf-form-titulo">Dados do Emissor</h3>
+                <form method="POST" action="/configuracao-fiscal">
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Razão Social / Nome</label>
+                            <input type="text" name="razao_social" placeholder="Nome ou Razão Social"
+                                   value="{{ config.razao_social if config and config.razao_social else '' }}">
+                        </div>
+                        <div class="form-group">
+                            <label>CPF / CNPJ</label>
+                            <input type="text" name="cpf_cnpj" placeholder="000.000.000-00 ou 00.000.000/0001-00"
+                                   value="{{ config.cpf_cnpj if config and config.cpf_cnpj else '' }}">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Inscrição Municipal (opcional)</label>
+                            <input type="text" name="inscricao_municipal" placeholder="Número da inscrição municipal"
+                                   value="{{ config.inscricao_municipal if config and config.inscricao_municipal else '' }}">
+                        </div>
+                        <div class="form-group">
+                            <label>Inscrição Estadual (opcional)</label>
+                            <input type="text" name="inscricao_estadual" placeholder="Número da inscrição estadual"
+                                   value="{{ config.inscricao_estadual if config and config.inscricao_estadual else '' }}">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>E-mail</label>
+                            <input type="email" name="email" placeholder="email@exemplo.com"
+                                   value="{{ config.email if config and config.email else '' }}">
+                        </div>
+                        <div class="form-group">
+                            <label>Telefone</label>
+                            <input type="text" name="telefone" placeholder="(00) 00000-0000"
+                                   value="{{ config.telefone if config and config.telefone else '' }}">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Endereço</label>
+                        <input type="text" name="endereco" placeholder="Rua, número, complemento"
+                               value="{{ config.endereco if config and config.endereco else '' }}">
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Cidade</label>
+                            <input type="text" name="cidade" placeholder="Cidade"
+                                   value="{{ config.cidade if config and config.cidade else '' }}">
+                        </div>
+                        <div class="form-group">
+                            <label>Estado</label>
+                            <select name="estado">
+                                <option value="">Selecione...</option>
+                                {% set estados = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'] %}
+                                {% for uf in estados %}
+                                <option value="{{ uf }}" {% if config and config.estado == uf %}selected{% endif %}>{{ uf }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>CEP</label>
+                            <input type="text" name="cep" placeholder="00000-000"
+                                   value="{{ config.cep if config and config.cep else '' }}">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Regime Tributário</label>
+                        <select name="regime_tributario">
+                            <option value="">Selecione...</option>
+                            <option value="mei" {% if config and config.regime_tributario == 'mei' %}selected{% endif %}>MEI — Microempreendedor Individual</option>
+                            <option value="simples" {% if config and config.regime_tributario == 'simples' %}selected{% endif %}>Simples Nacional</option>
+                            <option value="lucro_presumido" {% if config and config.regime_tributario == 'lucro_presumido' %}selected{% endif %}>Lucro Presumido</option>
+                            <option value="lucro_real" {% if config and config.regime_tributario == 'lucro_real' %}selected{% endif %}>Lucro Real</option>
+                            <option value="pf" {% if config and config.regime_tributario == 'pf' %}selected{% endif %}>Pessoa Física</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Observações (opcional)</label>
+                        <textarea name="observacoes" rows="3" placeholder="Informações adicionais...">{{ config.observacoes if config and config.observacoes else '' }}</textarea>
+                    </div>
+
+                    <button type="submit" class="btn" style="background:#1a1f36;color:#fff;width:100%;">Salvar Configuração Fiscal</button>
+                </form>
+            </div>
+
+            <!-- Status da Integração Fiscal -->
+            <div class="cf-status-card">
+                <h3 class="cf-form-titulo">📡 Status da Integração Fiscal</h3>
+
+                <div class="cf-status-lista">
+
+                    <div class="cf-status-item {% if config and config.razao_social %}cf-status-ok{% else %}cf-status-pendente{% endif %}">
+                        <span class="cf-status-icon">{% if config and config.razao_social %}✅{% else %}⬜{% endif %}</span>
+                        <div class="cf-status-info">
+                            <strong>Configuração fiscal</strong>
+                            <span>{% if config and config.razao_social %}Preenchida — {{ config.razao_social }}{% else %}Não preenchida. Preencha o formulário ao lado.{% endif %}</span>
+                        </div>
+                    </div>
+
+                    <div class="cf-status-item {% if config and config.regime_tributario %}cf-status-ok{% else %}cf-status-pendente{% endif %}">
+                        <span class="cf-status-icon">{% if config and config.regime_tributario %}✅{% else %}⬜{% endif %}</span>
+                        <div class="cf-status-info">
+                            <strong>Regime tributário</strong>
+                            <span>
+                                {% if config and config.regime_tributario %}
+                                    {% set regimes = {'mei': 'MEI', 'simples': 'Simples Nacional', 'lucro_presumido': 'Lucro Presumido', 'lucro_real': 'Lucro Real', 'pf': 'Pessoa Física'} %}
+                                    {{ regimes.get(config.regime_tributario, config.regime_tributario) }}
+                                {% else %}
+                                    Não informado
+                                {% endif %}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="cf-status-item cf-status-ok">
+                        <span class="cf-status-icon">✅</span>
+                        <div class="cf-status-info">
+                            <strong>Sistema preparado</strong>
+                            <span>Estrutura interna pronta para futura integração real</span>
+                        </div>
+                    </div>
+
+                    <div class="cf-status-item cf-status-info">
+                        <span class="cf-status-icon">⏳</span>
+                        <div class="cf-status-info">
+                            <strong>Integração real com prefeitura/API</strong>
+                            <span>Ainda não ativada — será implementada em etapa futura</span>
+                        </div>
+                    </div>
+
+                    <div class="cf-status-item cf-status-info">
+                        <span class="cf-status-icon">📄</span>
+                        <div class="cf-status-info">
+                            <strong>Notas geradas atualmente</strong>
+                            <span>Apenas no modo interno/organizacional (sem valor fiscal legal)</span>
+                        </div>
+                    </div>
+
+                </div>
+
+                <div class="cf-aviso-box">
+                    <strong>ℹ Aviso importante</strong>
+                    <p>A emissão de notas neste sistema é <strong>interna e organizacional</strong>. Ela não tem valor fiscal legal junto à prefeitura ou Receita Federal.</p>
+                    <p>A integração oficial com a API da prefeitura (NFS-e) será implementada em uma etapa futura do sistema.</p>
+                </div>
+
+                {% if config and config.created_at %}
+                <p class="cf-criado-em">Última atualização: {{ config.created_at }}</p>
+                {% endif %}
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+</main>
+<footer class="page-footer">
+    <p>Controle Financeiro — simples e eficiente</p>
+</footer>
+</div><!-- .page-wrap -->
+</div><!-- .app-wrapper -->
+
+<div class="toast-container" id="toast-container"></div>
+<script src="/static/app.js"></script>
+
+</body>
+</html>

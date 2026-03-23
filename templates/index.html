@@ -1,0 +1,1251 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard — Financeiro</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<div class="app-wrapper">
+
+<nav class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+        <span class="sidebar-brand-logo">💰</span>
+        <span class="sidebar-brand-name">Financeiro</span>
+        <button class="sidebar-close-btn" onclick="sidebarToggle()">✕</button>
+    </div>
+    <ul class="sidebar-nav">
+        <li><span class="sidebar-section-label">Principal</span></li>
+        <li><a href="/" class="sidebar-link ativo"><span class="sidebar-icon">🏠</span>Dashboard</a></li>
+        <li><a href="/inteligencia" class="sidebar-link"><span class="sidebar-icon">💡</span>Inteligência</a></li>
+        <li><a href="/relatorio" class="sidebar-link"><span class="sidebar-icon">📊</span>Relatório</a></li>
+        <li><span class="sidebar-section-label">Financeiro</span></li>
+        <li><a href="/gestao" class="sidebar-link"><span class="sidebar-icon">👥</span>Gestão</a></li>
+        <li><a href="/notas" class="sidebar-link"><span class="sidebar-icon">🧾</span>Notas Fiscais</a></li>
+        <li><a href="/recorrentes" class="sidebar-link"><span class="sidebar-icon">🔄</span>Recorrentes{% if rec_pendentes_qtd > 0 %}<span class="badge-nav">{{ rec_pendentes_qtd }}</span>{% endif %}</a></li>
+        <li><span class="sidebar-section-label">Ferramentas</span></li>
+        <li><a href="/contador" class="sidebar-link"><span class="sidebar-icon">🔢</span>Contador</a></li>
+        <li><a href="/busca" class="sidebar-link"><span class="sidebar-icon">🔍</span>Busca</a></li>
+        <li><a href="/importar" class="sidebar-link"><span class="sidebar-icon">📥</span>Importar CSV</a></li>
+        <li><span class="sidebar-section-label">Sistema</span></li>
+        <li><a href="/sistema/backup" class="sidebar-link"><span class="sidebar-icon">💾</span>Backup</a></li>
+        <li><a href="/configuracao-fiscal" class="sidebar-link"><span class="sidebar-icon">⚙</span>Config. Fiscal</a></li>
+        <li><a href="/backup" class="sidebar-link"><span class="sidebar-icon">⬇</span>Baixar Backup</a></li>
+    </ul>
+</nav>
+
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="sidebarToggle()"></div>
+
+<div class="page-wrap">
+<header class="topbar">
+    <button class="hamburger-btn" onclick="sidebarToggle()">&#9776;</button>
+    <span class="topbar-title">🏠 Dashboard</span>
+    <div class="topbar-actions">
+        <button onclick="abrirModal('modal-entrada')" class="topbar-btn topbar-btn-green">+ Entrada</button>
+        <button onclick="abrirModal('modal-despesa')" class="topbar-btn topbar-btn-red">&#8722; Despesa</button>
+        <a href="/gestao" class="topbar-btn topbar-btn-blue">💼 Gestão</a>
+    </div>
+</header>
+
+<main>
+
+
+    <!-- Mensagens Flash (Toasts) -->
+    {% with msgs = get_flashed_messages(with_categories=true) %}{% if msgs %}
+    <div id="flash-data" style="display:none;">
+        {% for cat, msg in msgs %}
+        <span data-cat="{{ cat }}" data-msg="{{ msg }}"></span>
+        {% endfor %}
+    </div>
+    {% endif %}{% endwith %}
+
+    <!-- Atalhos Rápidos -->
+    <section class="atalhos-bar">
+        <a href="#" class="atalho-btn atalho-entrada" onclick="abrirModal('modal-entrada');return false;">+ Entrada</a>
+        <a href="#" class="atalho-btn atalho-despesa" onclick="abrirModal('modal-despesa');return false;">- Despesa</a>
+        <a href="/gestao#sec-clientes" class="atalho-btn atalho-cliente">👤 Cliente</a>
+        <a href="/gestao#sec-servicos" class="atalho-btn atalho-servico">🔧 Serviço</a>
+        <a href="/gestao#sec-faturamentos" class="atalho-btn atalho-fat">💼 Faturamento</a>
+        <a href="/notas" class="atalho-btn atalho-nota">🧾 Nota</a>
+        <a href="/#sec-metas" class="atalho-btn atalho-meta" onclick="document.getElementById('sec-metas').scrollIntoView({behavior:'smooth'});return false;">🎯 Meta</a>
+        <a href="/sistema/backup" class="atalho-btn atalho-backup">💾 Backup</a>
+    </section>
+
+    <!-- Filtro de período + filtros avançados -->
+    <section class="filtro-bar">
+        <span class="filtro-label">Período:</span>
+        <div class="filtro-btns">
+            <a href="/?periodo=hoje&tipo={{ filtro_tipo }}&categoria={{ filtro_cat }}&subtipo={{ filtro_sub }}"   class="filtro-btn {% if periodo == 'hoje'   %}ativo{% endif %}">Hoje</a>
+            <a href="/?periodo=7dias&tipo={{ filtro_tipo }}&categoria={{ filtro_cat }}&subtipo={{ filtro_sub }}"  class="filtro-btn {% if periodo == '7dias'  %}ativo{% endif %}">7 dias</a>
+            <a href="/?periodo=30dias&tipo={{ filtro_tipo }}&categoria={{ filtro_cat }}&subtipo={{ filtro_sub }}" class="filtro-btn {% if periodo == '30dias' %}ativo{% endif %}">30 dias</a>
+            <a href="/?periodo=mes&tipo={{ filtro_tipo }}&categoria={{ filtro_cat }}&subtipo={{ filtro_sub }}"    class="filtro-btn {% if periodo == 'mes'    %}ativo{% endif %}">Mês atual</a>
+            <a href="/?periodo=todos"  class="filtro-btn {% if periodo == 'todos' and not filtro_tipo and not filtro_cat and not filtro_sub %}ativo{% endif %}">Todos</a>
+        </div>
+    </section>
+
+    <!-- Filtros avançados de lançamentos -->
+    <form method="GET" action="/" class="filtros-avancados-bar">
+        <input type="hidden" name="periodo" value="{{ periodo }}">
+        <select name="tipo" class="filtro-select" onchange="this.form.submit()">
+            <option value="">Tipo: todos</option>
+            <option value="entrada" {% if filtro_tipo == 'entrada' %}selected{% endif %}>Entradas</option>
+            <option value="despesa" {% if filtro_tipo == 'despesa' %}selected{% endif %}>Despesas</option>
+        </select>
+        <select name="categoria" class="filtro-select" onchange="this.form.submit()">
+            <option value="">Categoria: todas</option>
+            {% for cat in categorias %}
+            <option value="{{ cat }}" {% if filtro_cat == cat %}selected{% endif %}>{{ cat|capitalize }}</option>
+            {% endfor %}
+        </select>
+        <select name="subtipo" class="filtro-select" onchange="this.form.submit()">
+            <option value="">Subtipo: todos</option>
+            <option value="fixa" {% if filtro_sub == 'fixa' %}selected{% endif %}>Fixas</option>
+            <option value="variável" {% if filtro_sub == 'variável' %}selected{% endif %}>Variáveis</option>
+        </select>
+        {% if filtro_tipo or filtro_cat or filtro_sub %}
+        <a href="/?periodo={{ periodo }}" class="filtro-limpar">✕ Limpar filtros</a>
+        {% endif %}
+        <span class="filtro-count">{{ quantidade }} lançamento(s)</span>
+    </form>
+
+    <!-- Cards de resumo -->
+    <section class="cards">
+        <div class="card card-entrada">
+            <span class="card-label">Total de Entradas</span>
+            <span class="card-valor">R$ {{ "%.2f"|format(total_entradas) }}</span>
+            <span class="card-sub">período selecionado</span>
+        </div>
+        <div class="card card-saida">
+            <span class="card-label">Total de Saídas</span>
+            <span class="card-valor">R$ {{ "%.2f"|format(total_saidas) }}</span>
+            <span class="card-sub">período selecionado</span>
+        </div>
+        <div class="card card-saldo {% if saldo >= 0 %}saldo-positivo{% else %}saldo-negativo{% endif %}">
+            <span class="card-label">Saldo do Período</span>
+            <span class="card-valor">R$ {{ "%.2f"|format(saldo) }}</span>
+            <span class="card-sub">{{ "positivo" if saldo >= 0 else "negativo" }}</span>
+        </div>
+        <div class="card card-qtd">
+            <span class="card-label">Lançamentos</span>
+            <span class="card-valor">{{ quantidade }}</span>
+            <span class="card-sub">no período</span>
+        </div>
+        <div class="card card-fat">
+            <span class="card-label">Faturamento do Mês</span>
+            <span class="card-valor">R$ {{ "%.2f"|format(fat_mes_total) }}</span>
+            <span class="card-sub">{% if fat_mes_pendente > 0 %}R$ {{ "%.2f"|format(fat_mes_pendente) }} pendente{% else %}tudo recebido{% endif %}</span>
+        </div>
+        <div class="card card-notas">
+            <span class="card-label">Notas Emitidas (mês)</span>
+            <span class="card-valor">{{ notas_emitidas_mes }}</span>
+            <span class="card-sub">{% if notas_rascunhos_mes > 0 %}{{ notas_rascunhos_mes }} em rascunho{% else %}sem rascunhos{% endif %}</span>
+        </div>
+        <div class="card card-metas">
+            <span class="card-label">Metas em Andamento</span>
+            <span class="card-valor">{{ metas_andamento_qtd }}</span>
+            <span class="card-sub">de {{ metas_todas|length }} total</span>
+        </div>
+    </section>
+
+    <!-- Resumo do Período -->
+    <section class="resumo-periodo">
+        <h2 class="resumo-titulo">Resumo do Período</h2>
+        <div class="resumo-grid">
+            <div class="resumo-item resumo-entrada">
+                <span class="resumo-label">Entradas</span>
+                <span class="resumo-valor">R$ {{ "%.2f"|format(total_entradas) }}</span>
+            </div>
+            <div class="resumo-item resumo-saida">
+                <span class="resumo-label">Saídas</span>
+                <span class="resumo-valor">R$ {{ "%.2f"|format(total_saidas) }}</span>
+            </div>
+            <div class="resumo-item {% if saldo >= 0 %}resumo-positivo{% else %}resumo-negativo{% endif %}">
+                <span class="resumo-label">Saldo</span>
+                <span class="resumo-valor">R$ {{ "%.2f"|format(saldo) }}</span>
+            </div>
+            <div class="resumo-item resumo-fixa">
+                <span class="resumo-label">Despesas Fixas</span>
+                <span class="resumo-valor">R$ {{ "%.2f"|format(total_fixas) }}</span>
+            </div>
+            <div class="resumo-item resumo-variavel">
+                <span class="resumo-label">Despesas Variáveis</span>
+                <span class="resumo-valor">R$ {{ "%.2f"|format(total_variaveis) }}</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════════════════════
+         DASHBOARD VISUAL — Etapa 18
+    ══════════════════════════════════════════════════════════ -->
+    <section class="visual-dashboard">
+
+        <div class="vd-header">
+            <span class="vd-section-title">📊 Dashboard Visual</span>
+            <div class="vd-filters">
+                <button class="vd-filter-btn ativo" data-meses="3">3 meses</button>
+                <button class="vd-filter-btn" data-meses="6">6 meses</button>
+                <button class="vd-filter-btn" data-meses="0">Todos</button>
+            </div>
+        </div>
+
+        <div class="vd-grid-2">
+
+            <!-- Gráfico de Barras Mensais -->
+            <div class="vd-card">
+                <div class="vd-card-title">📈 Evolução Mensal — Entradas vs Saídas</div>
+                {% if dados_mensais_vis %}
+                {%- set ns = namespace(mx=0.01) -%}
+                {%- for m in dados_mensais_vis -%}
+                  {%- if m.entradas > ns.mx %}{%- set ns.mx = m.entradas -%}{%- endif -%}
+                  {%- if m.saidas   > ns.mx %}{%- set ns.mx = m.saidas   -%}{%- endif -%}
+                {%- endfor -%}
+                <div class="vd-month-chart">
+                    {% for m in dados_mensais_vis %}
+                    {%- set h_ent = ((m.entradas / ns.mx) * 76)|int -%}
+                    {%- set h_sai = ((m.saidas   / ns.mx) * 76)|int -%}
+                    <div class="vd-month-col" title="Entradas: R$ {{ '%.0f'|format(m.entradas) }} | Saídas: R$ {{ '%.0f'|format(m.saidas) }} | Saldo: R$ {{ '%.0f'|format(m.saldo) }}">
+                        <div class="vd-month-bars">
+                            <div class="vd-bar vd-bar-ent" style="height:{{ [h_ent,2]|max }}px;"></div>
+                            <div class="vd-bar vd-bar-sai" style="height:{{ [h_sai,2]|max }}px;"></div>
+                        </div>
+                        <span class="vd-month-label">{{ m.label }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="vd-chart-legend">
+                    <span class="vd-legend-item"><span class="vd-legend-dot" style="background:#22c55e;"></span>Entradas</span>
+                    <span class="vd-legend-item"><span class="vd-legend-dot" style="background:#ef4444;"></span>Saídas</span>
+                </div>
+                {% else %}
+                <div class="vd-vazio">Sem dados mensais disponíveis.<br>Registre lançamentos para ver a evolução.</div>
+                {% endif %}
+            </div>
+
+            <!-- Saldo Mensal -->
+            <div class="vd-card">
+                <div class="vd-card-title">💰 Saldo por Mês</div>
+                {% if dados_mensais_vis %}
+                {%- set ns2 = namespace(mx=0.01) -%}
+                {%- for m in dados_mensais_vis -%}
+                  {%- if m.saldo|abs > ns2.mx %}{%- set ns2.mx = m.saldo|abs -%}{%- endif -%}
+                {%- endfor -%}
+                <div class="vd-saldo-list">
+                    {% for m in dados_mensais_vis %}
+                    {%- set pct = ((m.saldo|abs / ns2.mx) * 100)|int -%}
+                    <div class="vd-saldo-item">
+                        <div class="vd-saldo-header">
+                            <span class="vd-saldo-month">{{ m.label }}</span>
+                            <span class="vd-saldo-val {% if m.saldo >= 0 %}verde{% else %}vermelho{% endif %}">
+                                R$ {{ "%.2f"|format(m.saldo) }}
+                            </span>
+                        </div>
+                        <div class="vd-saldo-bar-wrap">
+                            <div class="vd-saldo-bar-fill {% if m.saldo >= 0 %}vd-saldo-bar-pos{% else %}vd-saldo-bar-neg{% endif %}"
+                                 style="width:{{ [pct,3]|max }}%;"></div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="vd-vazio">Sem dados disponíveis.</div>
+                {% endif %}
+            </div>
+
+        </div><!-- /vd-grid-2 -->
+
+        <div class="vd-grid-3">
+
+            <!-- Categorias de Gasto -->
+            <div class="vd-card">
+                <div class="vd-card-title">🏷 Categorias de Despesa</div>
+                {% if categorias_visuais %}
+                <div class="vd-cat-list">
+                    {% for cat in categorias_visuais[:6] %}
+                    <div class="vd-cat-item">
+                        <div class="vd-cat-header">
+                            <span class="vd-cat-name">{{ cat.nome }}</span>
+                            <span class="vd-cat-pct">{{ cat.pct }}%</span>
+                        </div>
+                        <div class="vd-cat-bar-wrap">
+                            <div class="vd-cat-bar-fill c{{ loop.index0 }}" style="width:{{ cat.pct }}%;"></div>
+                        </div>
+                        <span class="vd-cat-value">R$ {{ "%.2f"|format(cat.total) }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="vd-vazio">Sem despesas categorizadas ainda.</div>
+                {% endif %}
+            </div>
+
+            <!-- Faturamentos -->
+            <div class="vd-card">
+                <div class="vd-card-title">💼 Faturamentos</div>
+                {% if fat_stats and fat_stats.total > 0 %}
+                <div>
+                    <div class="vd-stat-row">
+                        <span class="vd-stat-label">Total</span>
+                        <span class="vd-stat-value">{{ fat_stats.total }} faturamento(s)</span>
+                    </div>
+                    <div class="vd-stat-row">
+                        <span class="vd-stat-label">Pagos</span>
+                        <span class="vd-stat-badge vd-stat-badge-green">✔ {{ fat_stats.pagos or 0 }}</span>
+                    </div>
+                    <div class="vd-stat-row">
+                        <span class="vd-stat-label">Pendentes</span>
+                        <span class="vd-stat-badge vd-stat-badge-yellow">⏳ {{ fat_stats.pendentes or 0 }}</span>
+                    </div>
+                    <div class="vd-stat-row">
+                        <span class="vd-stat-label">Valor pago</span>
+                        <span class="vd-stat-value verde">R$ {{ "%.2f"|format(fat_stats.valor_pago or 0) }}</span>
+                    </div>
+                    <div class="vd-stat-row">
+                        <span class="vd-stat-label">Valor pendente</span>
+                        <span class="vd-stat-value amarelo">R$ {{ "%.2f"|format(fat_stats.valor_pendente or 0) }}</span>
+                    </div>
+                    {%- set pct_recebido = ((fat_stats.valor_pago or 0) / ((fat_stats.valor_pago or 0) + (fat_stats.valor_pendente or 0.01))) * 100 -%}
+                    <div class="vd-cat-bar-wrap" style="margin-top:10px;">
+                        <div class="vd-cat-bar-fill c3" style="width:{{ pct_recebido|int }}%;"></div>
+                    </div>
+                    <span class="vd-cat-value">{{ pct_recebido|int }}% recebido</span>
+                </div>
+                {% else %}
+                <div class="vd-vazio">Nenhum faturamento registrado.</div>
+                {% endif %}
+            </div>
+
+            <!-- Notas Fiscais + Metas -->
+            <div class="vd-card">
+                <div class="vd-card-title">🧾 Notas Fiscais & Metas</div>
+
+                <!-- Notas -->
+                {% if nf_stats and nf_stats.total > 0 %}
+                <div class="vd-stat-row">
+                    <span class="vd-stat-label">Emitidas</span>
+                    <span class="vd-stat-badge vd-stat-badge-green">✔ {{ nf_stats.emitidas or 0 }}</span>
+                </div>
+                <div class="vd-stat-row">
+                    <span class="vd-stat-label">Rascunhos</span>
+                    <span class="vd-stat-badge vd-stat-badge-yellow">✏ {{ nf_stats.rascunhos or 0 }}</span>
+                </div>
+                <div class="vd-stat-row">
+                    <span class="vd-stat-label">Canceladas</span>
+                    <span class="vd-stat-badge vd-stat-badge-gray">✕ {{ nf_stats.canceladas or 0 }}</span>
+                </div>
+                <div class="vd-stat-row" style="margin-bottom:10px;">
+                    <span class="vd-stat-label">Total emitido</span>
+                    <span class="vd-stat-value verde">R$ {{ "%.2f"|format(nf_stats.valor_emitido or 0) }}</span>
+                </div>
+                {% else %}
+                <div class="vd-vazio" style="padding:8px 0;">Sem notas fiscais.</div>
+                {% endif %}
+
+                <!-- Metas top -->
+                {% if metas_todas %}
+                <div class="vd-card-title" style="margin-top:12px;margin-bottom:8px;">🎯 Progresso de Metas</div>
+                <div class="vd-meta-list">
+                    {% for meta in metas_todas[:4] %}
+                    {%- set pct_meta = ([[(meta.valor_atual / meta.valor_objetivo * 100)|int, 0]|max, 100]|min) if meta.valor_objetivo > 0 else 0 -%}
+                    <div class="vd-meta-item">
+                        <div class="vd-meta-header">
+                            <span class="vd-meta-name" title="{{ meta.nome }}">{{ meta.nome }}</span>
+                            <span class="vd-meta-pct">{{ pct_meta }}%</span>
+                        </div>
+                        <div class="vd-meta-bar-wrap">
+                            <div class="vd-meta-bar-fill {% if pct_meta >= 100 %}done{% endif %}"
+                                 style="width:{{ pct_meta }}%;"></div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+
+        </div><!-- /vd-grid-3 -->
+
+    </section><!-- /visual-dashboard -->
+
+    <!-- Projeção do Mês -->
+    <section class="inteligencia-grid">
+
+        <div class="intel-card projecao-card">
+            <h2 class="intel-titulo">📊 Projeção do Mês</h2>
+            <div class="projecao-itens">
+                <div class="proj-item">
+                    <span class="proj-label">Entradas</span>
+                    <span class="proj-valor verde">R$ {{ "%.2f"|format(total_entradas) }}</span>
+                </div>
+                <div class="proj-item">
+                    <span class="proj-label">Saídas</span>
+                    <span class="proj-valor vermelho">R$ {{ "%.2f"|format(total_saidas) }}</span>
+                </div>
+                <div class="proj-item">
+                    <span class="proj-label">Saldo atual</span>
+                    <span class="proj-valor {% if saldo >= 0 %}azul{% else %}vermelho{% endif %}">R$ {{ "%.2f"|format(saldo) }}</span>
+                </div>
+                <div class="proj-item">
+                    <span class="proj-label">Despesas fixas</span>
+                    <span class="proj-valor amarelo">R$ {{ "%.2f"|format(total_fixas) }}</span>
+                </div>
+                <div class="proj-item">
+                    <span class="proj-label">Despesas variáveis</span>
+                    <span class="proj-valor roxo">R$ {{ "%.2f"|format(total_variaveis) }}</span>
+                </div>
+                <div class="proj-divider"></div>
+                <div class="proj-item destaque">
+                    <span class="proj-label">Disponível para gastar</span>
+                    <span class="proj-valor {% if projecao.disponivel > 0 %}verde{% else %}vermelho{% endif %}">R$ {{ "%.2f"|format(projecao.disponivel) }}</span>
+                </div>
+                <div class="proj-item">
+                    <span class="proj-label">Sugestão: guardar (20%)</span>
+                    <span class="proj-valor azul">R$ {{ "%.2f"|format(projecao.sugerir_guardar) }}</span>
+                </div>
+                <div class="proj-item">
+                    <span class="proj-label">Sugestão: investir (10%)</span>
+                    <span class="proj-valor verde">R$ {{ "%.2f"|format(projecao.sugerir_investir) }}</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="intel-col">
+
+            <!-- Alertas Financeiros -->
+            <div class="intel-card alertas-card">
+                <h2 class="intel-titulo">🔔 Alertas Financeiros</h2>
+                {% if alertas %}
+                <ul class="alertas-lista">
+                    {% for a in alertas %}
+                    <li class="alerta alerta-{{ a.nivel }}">
+                        {% if a.nivel == 'danger' %}⚠{% elif a.nivel == 'warning' %}📌{% else %}✅{% endif %}
+                        {{ a.msg }}
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="intel-vazio">Adicione lançamentos para receber alertas.</p>
+                {% endif %}
+            </div>
+
+            <!-- Resumo Inteligente -->
+            <div class="intel-card resumo-intel-card">
+                <h2 class="intel-titulo">💡 Resumo Inteligente</h2>
+                {% if frases %}
+                <ul class="frases-lista">
+                    {% for f in frases %}
+                    <li class="frase-item">{{ f }}</li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="intel-vazio">Registre entradas e despesas para ver sua análise.</p>
+                {% endif %}
+            </div>
+
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         METAS FINANCEIRAS
+    ═══════════════════════════════════════════════════════════ -->
+    <section id="sec-metas" class="metas-section">
+
+        <!-- Cabeçalho da seção com filtro de metas -->
+        <div class="secao-header" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+            <h2 class="secao-titulo" style="margin:0;">🎯 Metas Financeiras</h2>
+            <div class="filtro-btns" style="margin:0;">
+                <a href="/?periodo={{ periodo }}&tipo={{ filtro_tipo }}&categoria={{ filtro_cat }}&subtipo={{ filtro_sub }}&metas="
+                   class="filtro-btn {% if not filtro_metas %}ativo{% endif %}" style="font-size:0.8rem;padding:4px 10px;">Todas</a>
+                <a href="/?periodo={{ periodo }}&tipo={{ filtro_tipo }}&categoria={{ filtro_cat }}&subtipo={{ filtro_sub }}&metas=andamento"
+                   class="filtro-btn {% if filtro_metas == 'andamento' %}ativo{% endif %}" style="font-size:0.8rem;padding:4px 10px;">Em andamento</a>
+                <a href="/?periodo={{ periodo }}&tipo={{ filtro_tipo }}&categoria={{ filtro_cat }}&subtipo={{ filtro_sub }}&metas=concluidas"
+                   class="filtro-btn {% if filtro_metas == 'concluidas' %}ativo{% endif %}" style="font-size:0.8rem;padding:4px 10px;">Concluídas</a>
+            </div>
+            <span class="filtro-count">{{ metas|length }}/{{ metas_todas|length }}</span>
+        </div>
+
+        <div class="metas-grid">
+
+            <!-- Formulário de nova meta -->
+            <div class="form-card meta-form-card">
+                <h3 class="form-title" style="color:#1a1f36;border-bottom-color:#e8eaf0;font-size:0.95rem;">+ Nova Meta</h3>
+                <form method="POST" action="/metas/adicionar">
+                    <input type="hidden" name="periodo_ativo" value="{{ periodo }}">
+
+                    <div class="form-group">
+                        <label>Nome da Meta</label>
+                        <input type="text" name="nome" placeholder="Ex: Viagem, Carro, Emergência" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Tipo</label>
+                        <select name="tipo_meta">
+                            <option value="meta">Meta Financeira</option>
+                            <option value="reserva">Reserva de Emergência</option>
+                            <option value="investimento">Investimento</option>
+                        </select>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Valor Objetivo (R$)</label>
+                            <input type="number" name="valor_objetivo" step="0.01" min="0.01" placeholder="0,00" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Valor Atual (R$)</label>
+                            <input type="number" name="valor_atual" step="0.01" min="0" placeholder="0,00">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Prazo (opcional)</label>
+                        <input type="date" name="prazo">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Descrição (opcional)</label>
+                        <input type="text" name="descricao" placeholder="Detalhes sobre a meta">
+                    </div>
+
+                    <button type="submit" class="btn" style="background:#1a1f36;color:#fff;">Criar Meta</button>
+                </form>
+            </div>
+
+            <!-- Lista de metas -->
+            <div class="metas-lista-wrap">
+                {% if metas %}
+                    {% for m in metas %}
+                    {% set concluida = m.valor_atual >= m.valor_objetivo and m.valor_objetivo > 0 %}
+                    {% set pct = [(m.valor_atual / m.valor_objetivo * 100)|round(1), 100]|min if m.valor_objetivo > 0 else 0 %}
+                    {% set restante = [m.valor_objetivo - m.valor_atual, 0]|max %}
+
+                    <div class="meta-card {% if concluida %}meta-concluida{% endif %}">
+                        <div class="meta-head">
+                            <div class="meta-nome-wrap">
+                                <span class="meta-nome">{{ m.nome }}</span>
+                                {% if m.tipo == 'reserva' %}
+                                <span class="badge badge-fixa">Reserva</span>
+                                {% elif m.tipo == 'investimento' %}
+                                <span class="badge badge-variavel">Investimento</span>
+                                {% endif %}
+                                {% if concluida %}
+                                <span class="badge-concluida">✓ Concluída</span>
+                                {% endif %}
+                            </div>
+                            <div class="meta-acoes">
+                                <a href="/metas/editar/{{ m.id }}?periodo={{ periodo }}" class="btn-acao btn-editar">✏</a>
+                                <a href="/metas/excluir/{{ m.id }}?periodo={{ periodo }}" class="btn-acao btn-excluir" onclick="return confirm('Excluir esta meta?')">✕</a>
+                            </div>
+                        </div>
+
+                        {% if m.descricao %}
+                        <p class="meta-desc">{{ m.descricao }}</p>
+                        {% endif %}
+
+                        <div class="meta-valores">
+                            <span><span class="mv-label">Atual:</span> <span class="verde fw7">R$ {{ "%.2f"|format(m.valor_atual) }}</span></span>
+                            <span><span class="mv-label">Objetivo:</span> <span class="fw7">R$ {{ "%.2f"|format(m.valor_objetivo) }}</span></span>
+                            <span><span class="mv-label">Falta:</span> <span class="{% if restante == 0 %}verde{% else %}amarelo{% endif %} fw7">R$ {{ "%.2f"|format(restante) }}</span></span>
+                            {% if m.prazo %}<span><span class="mv-label">Prazo:</span> {{ m.prazo }}</span>{% endif %}
+                        </div>
+
+                        <div class="progress-wrap">
+                            <div class="progress-bar">
+                                <div class="progress-fill {% if concluida %}progress-done{% elif pct >= 50 %}progress-mid{% endif %}"
+                                     style="width:{{ pct }}%"></div>
+                            </div>
+                            <span class="progress-pct">{{ pct }}%</span>
+                        </div>
+
+                        <!-- Atualizar progresso inline -->
+                        <form method="POST" action="/metas/progresso/{{ m.id }}" class="progresso-form">
+                            <input type="hidden" name="periodo_ativo" value="{{ periodo }}">
+                            <input type="number" name="valor_atual" step="0.01" min="0"
+                                   value="{{ m.valor_atual }}" class="progresso-input" placeholder="Valor atual">
+                            <button type="submit" class="btn-progresso">Atualizar</button>
+                        </form>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                <p class="empty-msg" style="margin:0;">Nenhuma meta cadastrada ainda. Crie a sua primeira meta!</p>
+                {% endif %}
+            </div>
+
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         RESERVA + PATRIMÔNIO + RESUMO PATRIMONIAL
+    ═══════════════════════════════════════════════════════════ -->
+    <section class="patrimonial-grid">
+
+        <!-- Reserva de Emergência -->
+        <div class="intel-card">
+            <h2 class="intel-titulo">🛡 Reserva de Emergência</h2>
+            <div class="reserva-itens">
+                <div class="proj-item">
+                    <span class="proj-label">Valor guardado</span>
+                    <span class="proj-valor verde">R$ {{ "%.2f"|format(reserva.valor_guardado) }}</span>
+                </div>
+                <div class="proj-item">
+                    <span class="proj-label">Meta sugerida (6× fixas)</span>
+                    <span class="proj-valor azul">R$ {{ "%.2f"|format(reserva.meta_sugerida) }}</span>
+                </div>
+                <div class="proj-item">
+                    <span class="proj-label">Base: fixas/mês (30 dias)</span>
+                    <span class="proj-valor amarelo">R$ {{ "%.2f"|format(reserva.fixas_mes) }}</span>
+                </div>
+                <div class="proj-item destaque">
+                    <span class="proj-label">Quanto falta</span>
+                    <span class="proj-valor {% if reserva.falta == 0 %}verde{% else %}vermelho{% endif %}">
+                        R$ {{ "%.2f"|format(reserva.falta) }}
+                    </span>
+                </div>
+            </div>
+            <div class="progress-wrap" style="margin-top:14px;">
+                <div class="progress-bar">
+                    <div class="progress-fill {% if reserva.pct >= 100 %}progress-done{% elif reserva.pct >= 50 %}progress-mid{% endif %}"
+                         style="width:{{ reserva.pct }}%"></div>
+                </div>
+                <span class="progress-pct">{{ reserva.pct }}%</span>
+            </div>
+            {% if reserva.meta_sugerida == 0 %}
+            <p style="font-size:0.8rem;color:#aaa;margin-top:10px;">Registre despesas fixas para calcular a meta de reserva.</p>
+            {% endif %}
+        </div>
+
+        <!-- Evolução Patrimonial -->
+        <div class="intel-card">
+            <h2 class="intel-titulo">📈 Evolução Patrimonial</h2>
+            <div class="projecao-itens">
+                <div class="proj-item">
+                    <span class="proj-label">Saldo em conta (geral)</span>
+                    <span class="proj-valor {% if patrimonial.saldo_conta >= 0 %}azul{% else %}vermelho{% endif %}">
+                        R$ {{ "%.2f"|format(patrimonial.saldo_conta) }}
+                    </span>
+                </div>
+                <div class="proj-item">
+                    <span class="proj-label">Total guardado (metas)</span>
+                    <span class="proj-valor verde">R$ {{ "%.2f"|format(patrimonial.valor_guardado) }}</span>
+                </div>
+                <div class="proj-item">
+                    <span class="proj-label">Total em investimentos</span>
+                    <span class="proj-valor roxo">R$ {{ "%.2f"|format(patrimonial.valor_investido) }}</span>
+                </div>
+                <div class="proj-divider"></div>
+                <div class="proj-item destaque">
+                    <span class="proj-label">Patrimônio estimado</span>
+                    <span class="proj-valor {% if patrimonial.patrimonio >= 0 %}verde{% else %}vermelho{% endif %}">
+                        R$ {{ "%.2f"|format(patrimonial.patrimonio) }}
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Resumo Patrimonial -->
+        <div class="intel-card">
+            <h2 class="intel-titulo">🏦 Resumo Patrimonial</h2>
+            {% if frases_pat %}
+            <ul class="frases-lista">
+                {% for f in frases_pat %}
+                <li class="frase-item">{{ f }}</li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="intel-vazio">Registre lançamentos e metas para ver seu resumo.</p>
+            {% endif %}
+        </div>
+
+    </section>
+
+    <!-- Últimas Movimentações + Pendências -->
+    <section class="movim-pend-grid">
+
+        <!-- Últimas Movimentações -->
+        <div class="intel-card movim-card">
+            <h2 class="intel-titulo">🕒 Últimas Movimentações</h2>
+
+            {% if ultimos_lanc %}
+            <p class="movim-subtitulo">Lançamentos recentes</p>
+            <ul class="movim-lista">
+                {% for l in ultimos_lanc %}
+                <li class="movim-item">
+                    <span class="movim-data">{{ l.data }}</span>
+                    <span class="movim-desc">{{ l.descricao }}</span>
+                    <span class="movim-val {% if l.tipo == 'entrada' %}verde{% else %}vermelho{% endif %}">
+                        {% if l.tipo == 'entrada' %}+{% else %}-{% endif %}R$ {{ "%.2f"|format(l.valor) }}
+                    </span>
+                </li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+
+            {% if ultimos_fat %}
+            <p class="movim-subtitulo" style="margin-top:12px;">Faturamentos recentes</p>
+            <ul class="movim-lista">
+                {% for f in ultimos_fat %}
+                <li class="movim-item">
+                    <span class="movim-data">{{ f.data }}</span>
+                    <span class="movim-desc">{{ f.cliente_nome }}</span>
+                    <span class="movim-val {% if f.status == 'pago' %}verde{% else %}amarelo{% endif %}">
+                        R$ {{ "%.2f"|format(f.valor) }}
+                        <span class="movim-badge">{{ f.status }}</span>
+                    </span>
+                </li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+
+            {% if ultimas_notas %}
+            <p class="movim-subtitulo" style="margin-top:12px;">Notas fiscais recentes</p>
+            <ul class="movim-lista">
+                {% for n in ultimas_notas %}
+                <li class="movim-item">
+                    <span class="movim-data">{{ n.data_emissao }}</span>
+                    <span class="movim-desc">{{ n.numero_nota }} — {{ n.cliente_nome }}</span>
+                    <span class="movim-val {% if n.status == 'emitida' %}verde{% elif n.status == 'rascunho' %}amarelo{% else %}vermelho{% endif %}">
+                        R$ {{ "%.2f"|format(n.valor) }}
+                        <span class="movim-badge">{{ n.status }}</span>
+                    </span>
+                </li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+
+            {% if not ultimos_lanc and not ultimos_fat and not ultimas_notas %}
+            <p class="intel-vazio">Nenhuma movimentação registrada ainda.</p>
+            {% endif %}
+        </div>
+
+        <!-- Pendências -->
+        <div class="intel-card pend-card">
+            <h2 class="intel-titulo">⚠ Pendências</h2>
+
+            {% if pend_fat %}
+            <p class="movim-subtitulo">Faturamentos pendentes</p>
+            <ul class="movim-lista">
+                {% for f in pend_fat %}
+                <li class="movim-item pend-item">
+                    <span class="movim-data">{{ f.data }}</span>
+                    <span class="movim-desc">{{ f.cliente_nome }} — {{ f.servico_nome }}</span>
+                    <span class="movim-val amarelo">R$ {{ "%.2f"|format(f.valor) }}</span>
+                </li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+
+            {% if pend_notas %}
+            <p class="movim-subtitulo" style="margin-top:12px;">Notas em rascunho</p>
+            <ul class="movim-lista">
+                {% for n in pend_notas %}
+                <li class="movim-item pend-item">
+                    <span class="movim-data">{{ n.data_emissao }}</span>
+                    <span class="movim-desc">{{ n.numero_nota }} — {{ n.cliente_nome }}</span>
+                    <span class="movim-val amarelo">R$ {{ "%.2f"|format(n.valor) }}</span>
+                </li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+
+            {% if pend_metas %}
+            <p class="movim-subtitulo" style="margin-top:12px;">Metas com prazo vencido</p>
+            <ul class="movim-lista">
+                {% for m in pend_metas %}
+                <li class="movim-item pend-item">
+                    <span class="movim-data">{{ m.prazo }}</span>
+                    <span class="movim-desc">{{ m.nome }}</span>
+                    <span class="movim-val vermelho">
+                        {% set pct = (m.valor_atual / m.valor_objetivo * 100)|round(0)|int if m.valor_objetivo > 0 else 0 %}
+                        {{ pct }}%
+                    </span>
+                </li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+
+            {% if alertas %}
+            <p class="movim-subtitulo" style="margin-top:12px;">Alertas financeiros</p>
+            <ul class="movim-lista">
+                {% for a in alertas %}
+                {% if a.nivel != 'success' %}
+                <li class="movim-item pend-item pend-alerta-{{ a.nivel }}">
+                    <span class="movim-desc">{{ a.msg }}</span>
+                </li>
+                {% endif %}
+                {% endfor %}
+            </ul>
+            {% endif %}
+
+            {% if not pend_fat and not pend_notas and not pend_metas and not alertas %}
+            <p class="intel-vazio" style="color:#27ae60;">Nenhuma pendência no momento.</p>
+            {% endif %}
+        </div>
+
+    </section>
+
+    <!-- Resumo Fiscal -->
+    <section class="fiscal-status-section">
+        <div class="intel-card fiscal-status-card">
+            <h2 class="intel-titulo">🏛 Resumo Fiscal</h2>
+            <div class="fiscal-status-grid">
+                <div class="fiscal-status-item {% if config_fiscal and config_fiscal.razao_social %}status-ok{% else %}status-pendente{% endif %}">
+                    <span class="fiscal-icon">{% if config_fiscal and config_fiscal.razao_social %}✅{% else %}⬜{% endif %}</span>
+                    <span class="fiscal-label">Configuração fiscal</span>
+                    <span class="fiscal-desc">{% if config_fiscal and config_fiscal.razao_social %}preenchida{% else %}não preenchida{% endif %}</span>
+                </div>
+                <div class="fiscal-status-item status-info">
+                    <span class="fiscal-icon">🔧</span>
+                    <span class="fiscal-label">Sistema preparado</span>
+                    <span class="fiscal-desc">para futura integração</span>
+                </div>
+                <div class="fiscal-status-item status-pendente">
+                    <span class="fiscal-icon">⏳</span>
+                    <span class="fiscal-label">Integração oficial</span>
+                    <span class="fiscal-desc">ainda não ativada</span>
+                </div>
+                <div class="fiscal-status-item status-info">
+                    <span class="fiscal-icon">📄</span>
+                    <span class="fiscal-label">Notas atuais</span>
+                    <span class="fiscal-desc">modo interno/organizacional</span>
+                </div>
+            </div>
+            <p class="fiscal-aviso">
+                ℹ A emissão atual é interna e organizacional. A integração oficial com prefeitura/API será feita em etapa futura.
+                <a href="/configuracao-fiscal" class="fiscal-link">Configurar dados fiscais →</a>
+            </p>
+        </div>
+    </section>
+
+    <!-- Próxima Melhor Ação -->
+    {% if proxima_acao %}
+    <section class="proxima-acao-section">
+        <div class="proxima-acao-card">
+            <span class="proxima-acao-icone">💡</span>
+            <div class="proxima-acao-corpo">
+                <span class="proxima-acao-frase">{{ proxima_acao.frase }}</span>
+            </div>
+            <a href="{{ proxima_acao.url }}" class="btn-proxima-acao">{{ proxima_acao.label }}</a>
+        </div>
+    </section>
+    {% endif %}
+
+    <!-- Ações Rápidas -->
+    {% if acoes_rapidas %}
+    <section class="acoes-rapidas-section" id="sec-acoes-rapidas">
+        <h2 class="secao-titulo">⚡ Ações Rápidas</h2>
+        <div class="acoes-rapidas-grid">
+            {% for acao in acoes_rapidas %}
+            <a href="{{ acao.url }}" class="acao-card {{ acao.cor }}">
+                <span class="acao-icone">{{ acao.icone }}</span>
+                <div class="acao-corpo">
+                    <span class="acao-titulo">{{ acao.titulo }}</span>
+                    <span class="acao-desc">{{ acao.descricao }}</span>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
+
+    <!-- Formulários -->
+    <section class="formularios">
+
+        <!-- Formulário Entrada -->
+        <div class="form-card" id="form-entrada">
+            <h2 class="form-title entrada-title">+ Nova Entrada</h2>
+            <form method="POST" action="/" id="form-entrada-el" autocomplete="off">
+                <input type="hidden" name="tipo" value="entrada">
+                <input type="hidden" name="periodo_ativo" value="{{ periodo }}">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Data</label>
+                        <input type="date" name="data" value="{{ hoje }}" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Valor (R$)</label>
+                        <input type="number" name="valor" id="val-entrada" step="0.01" min="0.01" placeholder="0,00" required>
+                    </div>
+                </div>
+                <div class="form-group ac-wrap">
+                    <label>Descrição</label>
+                    <input type="text" name="descricao" id="desc-entrada" placeholder="Ex: Salário maio" required>
+                    <div class="ac-lista" id="ac-lista-entrada"></div>
+                    <div class="sugestao-box" id="sug-entrada" style="display:none"></div>
+                </div>
+                <div class="form-group">
+                    <label>Categoria</label>
+                    <select name="categoria" id="cat-entrada" required>
+                        <option value="">Selecione...</option>
+                        <option value="salário">Salário</option>
+                        <option value="renda extra">Renda Extra</option>
+                        <option value="faturamento">Faturamento</option>
+                        <option value="investimento">Investimento</option>
+                        <option value="outros">Outros</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-entrada">Adicionar Entrada</button>
+            </form>
+        </div>
+
+        <!-- Formulário Despesa -->
+        <div class="form-card" id="form-despesa">
+            <h2 class="form-title despesa-title">- Nova Despesa</h2>
+            <form method="POST" action="/" id="form-despesa-el" autocomplete="off">
+                <input type="hidden" name="tipo" value="despesa">
+                <input type="hidden" name="periodo_ativo" value="{{ periodo }}">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Data</label>
+                        <input type="date" name="data" value="{{ hoje }}" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Valor (R$)</label>
+                        <input type="number" name="valor" id="val-despesa" step="0.01" min="0.01" placeholder="0,00" required>
+                    </div>
+                </div>
+                <div class="form-group ac-wrap">
+                    <label>Descrição</label>
+                    <input type="text" name="descricao" id="desc-despesa" placeholder="Ex: Conta de luz" required>
+                    <div class="ac-lista" id="ac-lista-despesa"></div>
+                    <div class="sugestao-box" id="sug-despesa" style="display:none"></div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Categoria</label>
+                        <select name="categoria" id="cat-despesa" required>
+                            <option value="">Selecione...</option>
+                            <option value="aluguel">Aluguel</option>
+                            <option value="água">Água</option>
+                            <option value="luz">Luz</option>
+                            <option value="internet">Internet</option>
+                            <option value="alimentação">Alimentação</option>
+                            <option value="transporte">Transporte</option>
+                            <option value="compras">Compras</option>
+                            <option value="lazer">Lazer</option>
+                            <option value="investimento">Investimento</option>
+                            <option value="outros">Outros</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Tipo</label>
+                        <select name="subtipo" id="sub-despesa" required>
+                            <option value="">Selecione...</option>
+                            <option value="fixa">Fixa</option>
+                            <option value="variável">Variável</option>
+                        </select>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-despesa">Adicionar Despesa</button>
+            </form>
+        </div>
+
+    </section>
+
+    <script>
+    (function() {
+        var _acTimer = {};
+
+        function setupAutoComplete(descId, catId, subId, valId, sugId, acListId, tipo) {
+            var desc = document.getElementById(descId);
+            var cat  = document.getElementById(catId);
+            var sub  = subId ? document.getElementById(subId) : null;
+            var val  = document.getElementById(valId);
+            var sug  = document.getElementById(sugId);
+            var acL  = document.getElementById(acListId);
+            if (!desc) return;
+
+            function fecharLista() { acL.innerHTML = ''; acL.style.display = 'none'; }
+
+            desc.addEventListener('input', function() {
+                var q = desc.value.trim();
+                clearTimeout(_acTimer[descId]);
+                fecharLista();
+                if (q.length < 2) { sug.style.display = 'none'; return; }
+
+                _acTimer[descId] = setTimeout(function() {
+                    fetch('/api/autocomplete-descricao?q=' + encodeURIComponent(q))
+                        .then(function(r){ return r.json(); })
+                        .then(function(itens) {
+                            fecharLista();
+                            if (!itens.length) return;
+                            acL.style.display = 'block';
+                            itens.forEach(function(item) {
+                                var li = document.createElement('div');
+                                li.className = 'ac-item';
+                                li.innerHTML = '<strong>' + item.descricao + '</strong><span class="ac-meta">' +
+                                    (item.categoria || '') + (item.subtipo ? ' · ' + item.subtipo : '') +
+                                    ' · R$ ' + item.valor.toFixed(2) + '</span>';
+                                li.addEventListener('mousedown', function(e) {
+                                    e.preventDefault();
+                                    desc.value = item.descricao;
+                                    if (cat) setSelectVal(cat, item.categoria);
+                                    if (sub && item.subtipo) setSelectVal(sub, item.subtipo);
+                                    if (val && item.valor) val.value = item.valor.toFixed(2);
+                                    fecharLista();
+                                    sug.style.display = 'none';
+                                });
+                                acL.appendChild(li);
+                            });
+                        });
+
+                    fetch('/api/sugestao-categoria?descricao=' + encodeURIComponent(q))
+                        .then(function(r){ return r.json(); })
+                        .then(function(data) {
+                            if (!data.categoria) { sug.style.display = 'none'; return; }
+                            var txt = '💡 Sugestão: <strong>' + data.categoria + '</strong>';
+                            if (data.subtipo) txt += ' · ' + data.subtipo;
+                            if (data.valor)   txt += ' · R$ ' + data.valor.toFixed(2);
+                            if (data.aviso)   txt += '<br><small style="color:#888">' + data.aviso + '</small>';
+                            txt += ' <button type="button" class="btn-aceitar-sug" onclick="aceitarSug(\'' + descId + '\',\'' + catId + '\',\'' + (subId||'') + '\',\'' + valId + '\')">Aceitar</button>';
+                            sug.innerHTML = txt;
+                            sug.style.display = 'block';
+                            sug.dataset.cat = data.categoria || '';
+                            sug.dataset.sub = data.subtipo || '';
+                            sug.dataset.val = data.valor ? data.valor.toFixed(2) : '';
+                        });
+                }, 350);
+            });
+
+            desc.addEventListener('blur', function() {
+                setTimeout(fecharLista, 200);
+            });
+        }
+
+        function setSelectVal(sel, v) {
+            if (!v) return;
+            for (var i = 0; i < sel.options.length; i++) {
+                if (sel.options[i].value.toLowerCase() === v.toLowerCase()) {
+                    sel.selectedIndex = i; return;
+                }
+            }
+        }
+
+        window.aceitarSug = function(descId, catId, subId, valId) {
+            var sug = document.getElementById('sug-' + (descId === 'desc-entrada' ? 'entrada' : 'despesa'));
+            var cat = document.getElementById(catId);
+            var sub = subId ? document.getElementById(subId) : null;
+            var val = document.getElementById(valId);
+            if (sug.dataset.cat) setSelectVal(cat, sug.dataset.cat);
+            if (sub && sug.dataset.sub) setSelectVal(sub, sug.dataset.sub);
+            if (val && sug.dataset.val) val.value = sug.dataset.val;
+            sug.style.display = 'none';
+        };
+
+        setupAutoComplete('desc-entrada', 'cat-entrada', null, 'val-entrada', 'sug-entrada', 'ac-lista-entrada', 'entrada');
+        setupAutoComplete('desc-despesa', 'cat-despesa', 'sub-despesa', 'val-despesa', 'sug-despesa', 'ac-lista-despesa', 'despesa');
+    })();
+    </script>
+
+    <!-- Tabela de lançamentos -->
+    <section class="lancamentos">
+        <h2>Lançamentos
+            <span class="periodo-tag">
+                {% if periodo == 'hoje' %}Hoje
+                {% elif periodo == '7dias' %}Últimos 7 dias
+                {% elif periodo == '30dias' %}Últimos 30 dias
+                {% elif periodo == 'mes' %}Mês atual
+                {% else %}Todos
+                {% endif %}
+            </span>
+        </h2>
+        {% if lancamentos %}
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Data</th>
+                        <th>Tipo</th>
+                        <th>Descrição</th>
+                        <th>Categoria</th>
+                        <th>Subtipo</th>
+                        <th>Valor</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for l in lancamentos %}
+                    <tr class="row-{{ l.tipo }}{% if l.tipo == 'despesa' and l.subtipo == 'fixa' %} row-fixa{% endif %}">
+                        <td>{{ l.data }}</td>
+                        <td>
+                            {% if l.tipo == "entrada" %}
+                            <span class="badge badge-entrada">Entrada</span>
+                            {% else %}
+                            <span class="badge badge-despesa">Despesa</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ l.descricao }}</td>
+                        <td>{{ l.categoria|capitalize }}</td>
+                        <td>
+                            {% if l.subtipo == "fixa" %}
+                            <span class="badge badge-fixa">Fixa</span>
+                            {% elif l.subtipo == "variável" %}
+                            <span class="badge badge-variavel">Variável</span>
+                            {% else %}
+                            —
+                            {% endif %}
+                        </td>
+                        <td class="valor-cell {% if l.tipo == 'entrada' %}val-entrada{% else %}val-despesa{% endif %}">
+                            R$ {{ "%.2f"|format(l.valor) }}
+                        </td>
+                        <td>
+                            <a href="/excluir/{{ l.id }}?periodo={{ periodo }}" class="btn-del" onclick="return confirm('Excluir este lançamento?')">✕</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="empty-msg">Nenhum lançamento encontrado para este período.</p>
+        {% endif %}
+    </section>
+
+
+</main>
+<footer class="page-footer">
+    <p>Controle Financeiro — simples e eficiente</p>
+</footer>
+</div><!-- .page-wrap -->
+</div><!-- .app-wrapper -->
+
+<!-- ═══════════════════════════════════════════════════════
+     MODAIS DE AÇÃO RÁPIDA
+═══════════════════════════════════════════════════════ -->
+
+<!-- Modal: Nova Entrada -->
+<div class="modal-overlay" id="modal-entrada" onclick="if(event.target===this)fecharModal('modal-entrada')">
+    <div class="modal-box">
+        <div class="modal-header">
+            <span class="modal-title entrada-title">+ Nova Entrada</span>
+            <button class="modal-close" onclick="fecharModal('modal-entrada')" type="button">✕</button>
+        </div>
+        <div class="modal-body">
+            <form method="POST" action="/" autocomplete="off">
+                <input type="hidden" name="tipo" value="entrada">
+                <input type="hidden" name="periodo_ativo" value="{{ periodo }}">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="required">Data</label>
+                        <input type="date" name="data" value="{{ hoje }}" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="required">Valor (R$)</label>
+                        <input type="number" name="valor" step="0.01" min="0.01" placeholder="0,00" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="required">Descrição</label>
+                    <input type="text" name="descricao" id="ent-descricao" placeholder="Ex: Salário, Freelance..." required autocomplete="off">
+                    <div id="ent-sugestao" style="display:none;margin-top:4px;font-size:0.78rem;color:#4f6ef7;padding:4px 8px;background:#eff6ff;border-radius:5px;"></div>
+                </div>
+                <div class="form-group">
+                    <label class="required">Categoria</label>
+                    <select name="categoria" id="ent-categoria" required>
+                        <option value="">Selecione...</option>
+                        <option value="salário">Salário</option>
+                        <option value="renda extra">Renda Extra</option>
+                        <option value="faturamento">Faturamento</option>
+                        <option value="investimento">Investimento</option>
+                        <option value="outros">Outros</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-entrada" style="margin-top:8px;">✓ Adicionar Entrada</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Nova Despesa -->
+<div class="modal-overlay" id="modal-despesa" onclick="if(event.target===this)fecharModal('modal-despesa')">
+    <div class="modal-box">
+        <div class="modal-header">
+            <span class="modal-title despesa-title">− Nova Despesa</span>
+            <button class="modal-close" onclick="fecharModal('modal-despesa')" type="button">✕</button>
+        </div>
+        <div class="modal-body">
+            <form method="POST" action="/" autocomplete="off">
+                <input type="hidden" name="tipo" value="despesa">
+                <input type="hidden" name="periodo_ativo" value="{{ periodo }}">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="required">Data</label>
+                        <input type="date" name="data" value="{{ hoje }}" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="required">Valor (R$)</label>
+                        <input type="number" name="valor" step="0.01" min="0.01" placeholder="0,00" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="required">Descrição</label>
+                    <input type="text" name="descricao" id="desp-descricao" placeholder="Ex: Conta de luz, Aluguel..." required autocomplete="off">
+                    <div id="desp-sugestao" style="display:none;margin-top:4px;font-size:0.78rem;color:#dc2626;padding:4px 8px;background:#fff5f5;border-radius:5px;"></div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="required">Categoria</label>
+                        <select name="categoria" id="desp-categoria" required>
+                            <option value="">Selecione...</option>
+                            <option value="aluguel">Aluguel</option>
+                            <option value="água">Água</option>
+                            <option value="luz">Luz</option>
+                            <option value="internet">Internet</option>
+                            <option value="alimentação">Alimentação</option>
+                            <option value="transporte">Transporte</option>
+                            <option value="compras">Compras</option>
+                            <option value="lazer">Lazer</option>
+                            <option value="investimento">Investimento</option>
+                            <option value="outros">Outros</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="required">Tipo</label>
+                        <select name="subtipo" id="desp-subtipo" required>
+                            <option value="">Selecione...</option>
+                            <option value="fixa">Fixa</option>
+                            <option value="variável">Variável</option>
+                        </select>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-despesa" style="margin-top:8px;">✓ Adicionar Despesa</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Toast Container -->
+<div class="toast-container" id="toast-container"></div>
+<script src="/static/app.js"></script>
+<script>
+(function(){
+    var t; function sugerir(desc, tipoCfg) {
+        clearTimeout(t);
+        if (!desc || desc.length < 3) { hide(tipoCfg); return; }
+        t = setTimeout(function(){
+            fetch('/api/sugestao-categoria?descricao=' + encodeURIComponent(desc))
+            .then(function(r){ return r.json(); })
+            .then(function(d){
+                if (!d.categoria) { hide(tipoCfg); return; }
+                var el = document.getElementById(tipoCfg.sugestaoId);
+                el.style.display = 'block';
+                var conf = d.confianca === 'alta' ? '● Alta confiança' : d.confianca === 'media' ? '◐ Média confiança' : '○ Sugestão';
+                el.innerHTML = '💡 Sugestão: <strong>' + d.categoria + '</strong> — ' + conf +
+                    ' <a href="#" onclick="aplicarSugestao(\'' + tipoCfg.catId + '\',\'' + d.categoria + '\'' +
+                    (tipoCfg.subId && d.subtipo ? ',\'' + tipoCfg.subId + '\',\'' + d.subtipo + '\'' : '') +
+                    ');document.getElementById(\'' + tipoCfg.sugestaoId + '\').style.display=\'none\';return false;" style="font-weight:700;margin-left:6px;">Usar</a>';
+            }).catch(function(){});
+        }, 520);
+    }
+    function hide(c){ var e=document.getElementById(c.sugestaoId); if(e) e.style.display='none'; }
+    window.aplicarSugestao = function(catId, cat, subId, sub){
+        var s=document.getElementById(catId); if(s){ for(var i=0;i<s.options.length;i++) if(s.options[i].value===cat){s.selectedIndex=i;break;} }
+        if(subId && sub){ var ss=document.getElementById(subId); if(ss){ for(var j=0;j<ss.options.length;j++) if(ss.options[j].value===sub){ss.selectedIndex=j;break;} } }
+    };
+    var ed=document.getElementById('ent-descricao');
+    if(ed) ed.addEventListener('input', function(){ sugerir(this.value, {sugestaoId:'ent-sugestao',catId:'ent-categoria'}); });
+    var dd=document.getElementById('desp-descricao');
+    if(dd) dd.addEventListener('input', function(){ sugerir(this.value, {sugestaoId:'desp-sugestao',catId:'desp-categoria',subId:'desp-subtipo'}); });
+})();
+</script>
+</body>
+</html>

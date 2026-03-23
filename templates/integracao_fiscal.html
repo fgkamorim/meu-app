@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Integração Fiscal — Financeiro</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<div class="app-wrapper">
+
+<nav class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+        <span class="sidebar-brand-logo">💰</span>
+        <span class="sidebar-brand-name">Financeiro</span>
+        <button class="sidebar-close-btn" onclick="sidebarToggle()">✕</button>
+    </div>
+    <ul class="sidebar-nav">
+        <li><span class="sidebar-section-label">Principal</span></li>
+        <li><a href="/" class="sidebar-link"><span class="sidebar-icon">🏠</span>Dashboard</a></li>
+        <li><a href="/inteligencia" class="sidebar-link"><span class="sidebar-icon">💡</span>Inteligência</a></li>
+        <li><a href="/relatorio" class="sidebar-link"><span class="sidebar-icon">📊</span>Relatório</a></li>
+        <li><span class="sidebar-section-label">Financeiro</span></li>
+        <li><a href="/gestao" class="sidebar-link"><span class="sidebar-icon">👥</span>Gestão</a></li>
+        <li><a href="/notas" class="sidebar-link"><span class="sidebar-icon">🧾</span>Notas Fiscais</a></li>
+        <li><a href="/recorrentes" class="sidebar-link"><span class="sidebar-icon">🔄</span>Recorrentes{% if rec_pendentes_qtd|default(0) > 0 %}<span class="badge-nav">{{ rec_pendentes_qtd }}</span>{% endif %}</a></li>
+        <li><span class="sidebar-section-label">Ferramentas</span></li>
+        <li><a href="/contador" class="sidebar-link"><span class="sidebar-icon">🔢</span>Contador</a></li>
+        <li><a href="/busca" class="sidebar-link"><span class="sidebar-icon">🔍</span>Busca</a></li>
+        <li><a href="/importar" class="sidebar-link"><span class="sidebar-icon">📥</span>Importar CSV</a></li>
+        <li><span class="sidebar-section-label">Sistema</span></li>
+        <li><a href="/sistema/backup" class="sidebar-link"><span class="sidebar-icon">💾</span>Backup</a></li>
+        <li><a href="/configuracao-fiscal" class="sidebar-link ativo"><span class="sidebar-icon">⚙</span>Config. Fiscal</a></li>
+        <li><a href="/backup" class="sidebar-link"><span class="sidebar-icon">⬇</span>Baixar Backup</a></li>
+    </ul>
+</nav>
+
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="sidebarToggle()"></div>
+
+<div class="page-wrap">
+<header class="topbar">
+    <button class="hamburger-btn" onclick="sidebarToggle()">&#9776;</button>
+    <span class="topbar-title">🔗 Integração Fiscal</span>
+    <div class="topbar-actions">
+        
+    </div>
+</header>
+
+<main>
+    {% with msgs = get_flashed_messages(with_categories=true) %}{% if msgs %}
+    <div id="flash-data" style="display:none;">
+        {% for cat, msg in msgs %}
+        <span data-cat="{{ cat }}" data-msg="{{ msg }}"></span>
+        {% endfor %}
+    </div>
+    {% endif %}{% endwith %}
+
+
+    <!-- Avisos obrigatórios -->
+    <div class="aviso-simulacao" style="background:#fff7ed;border-left-color:#f97316;">
+        ⚠ <strong>Modo de preparação/simulação.</strong> Nenhuma integração real com prefeitura ou API nacional está ativa. Consulte a documentação e as regras do ambiente aplicável antes de ativar a integração real.
+    </div>
+
+    {% if salvo %}
+    <div class="cf-alerta cf-alerta-ok" style="margin-bottom:16px;">✅ Configuração de integração salva com sucesso!</div>
+    {% endif %}
+
+    {% if campos_faltando %}
+    <div class="integ-alerta-config">
+        <strong>⚠ Configuração fiscal incompleta.</strong> Os seguintes campos precisam ser preenchidos antes de usar a integração:
+        <ul>{% for c in campos_faltando %}<li>{{ c }}</li>{% endfor %}</ul>
+        <a href="/configuracao-fiscal" class="fiscal-link">→ Completar configuração fiscal</a>
+    </div>
+    {% endif %}
+
+    <div class="cf-grid">
+
+        <!-- Formulário de configuração de integração -->
+        <div class="cf-form-card">
+            <h3 class="cf-form-titulo">⚙ Configuração da Integração</h3>
+
+            <form method="POST" action="/integracao-fiscal">
+
+                <div class="form-group">
+                    <label>Modo de Emissão Atual</label>
+                    <select name="modo_emissao">
+                        <option value="interno" {% if not config_integ or config_integ.modo_emissao == 'interno' %}selected{% endif %}>
+                            Interno (organizacional, sem envio externo)
+                        </option>
+                        <option value="integracao_real" {% if config_integ and config_integ.modo_emissao == 'integracao_real' %}selected{% endif %}>
+                            Integração Real (quando disponível)
+                        </option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Provedor de Integração</label>
+                    <input type="text" name="provedor"
+                           placeholder="Ex: eNotas, NFSe Nacional, Prefeitura direta..."
+                           value="{{ config_integ.provedor if config_integ and config_integ.provedor else '' }}">
+                    <small style="color:#9ca3af;font-size:0.75rem;">Deixe em branco enquanto a integração não estiver definida.</small>
+                </div>
+
+                <div class="form-group">
+                    <label>Ambiente</label>
+                    <select name="ambiente">
+                        <option value="homologacao" {% if not config_integ or config_integ.ambiente == 'homologacao' %}selected{% endif %}>
+                            Homologação (testes)
+                        </option>
+                        <option value="producao" {% if config_integ and config_integ.ambiente == 'producao' %}selected{% endif %}>
+                            Produção (real — use com cuidado)
+                        </option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Código do Município (IBGE, opcional)</label>
+                    <input type="text" name="municipio_codigo"
+                           placeholder="Ex: 3550308 (São Paulo)"
+                           value="{{ config_integ.municipio_codigo if config_integ and config_integ.municipio_codigo else '' }}">
+                </div>
+
+                <div class="form-group">
+                    <label>Observações Técnicas</label>
+                    <textarea name="observacoes" rows="3"
+                              placeholder="Notas técnicas sobre a configuração, tokens futuros, etc...">{{ config_integ.observacoes if config_integ and config_integ.observacoes else '' }}</textarea>
+                </div>
+
+                <button type="submit" class="btn" style="background:#1a1f36;color:#fff;width:100%;">Salvar Configuração</button>
+            </form>
+        </div>
+
+        <!-- Painel de status + contadores -->
+        <div class="cf-status-card">
+            <h3 class="cf-form-titulo">📡 Status da Integração</h3>
+
+            <!-- Modo atual -->
+            <div class="integ-modo-badge {% if config_integ and config_integ.modo_emissao == 'integracao_real' %}modo-real{% else %}modo-interno{% endif %}">
+                {% if config_integ and config_integ.modo_emissao == 'integracao_real' %}
+                🔌 Integração Real configurada
+                {% else %}
+                📄 Modo Interno (emissão organizacional)
+                {% endif %}
+                <span class="integ-ambiente-tag">
+                    {{ (config_integ.ambiente if config_integ else 'homologacao')|upper }}
+                </span>
+            </div>
+
+            <!-- Checklist de configuração -->
+            <div class="cf-status-lista" style="margin-top:14px;">
+                <div class="cf-status-item {% if config_fiscal and config_fiscal.razao_social %}cf-status-ok{% else %}cf-status-pendente{% endif %}">
+                    <span class="cf-status-icon">{% if config_fiscal and config_fiscal.razao_social %}✅{% else %}⬜{% endif %}</span>
+                    <div class="cf-status-info">
+                        <strong>Dados do emissor</strong>
+                        <span>{% if not campos_faltando %}Completos{% else %}{{ campos_faltando|length }} campo(s) faltando{% endif %}</span>
+                    </div>
+                </div>
+                <div class="cf-status-item {% if config_integ %}cf-status-ok{% else %}cf-status-pendente{% endif %}">
+                    <span class="cf-status-icon">{% if config_integ %}✅{% else %}⬜{% endif %}</span>
+                    <div class="cf-status-info">
+                        <strong>Configuração de integração</strong>
+                        <span>{% if config_integ %}Salva{% else %}Não configurada{% endif %}</span>
+                    </div>
+                </div>
+                <div class="cf-status-item cf-status-info">
+                    <span class="cf-status-icon">⏳</span>
+                    <div class="cf-status-info">
+                        <strong>Integração com API/prefeitura</strong>
+                        <span>Não ativada — etapa futura</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contadores de notas por status de integração -->
+            <h4 style="font-size:0.82rem;color:#555;margin:16px 0 8px;text-transform:uppercase;letter-spacing:.4px;">Notas por status de integração</h4>
+            {% if notas_por_status %}
+            <div class="integ-contadores">
+                {% for status, qtd in notas_por_status.items() %}
+                {% set info = LABEL_INTEGRACAO.get(status, ('⬜', status, 'integ-nao-enviada')) %}
+                <div class="integ-contador-item {{ info[2] }}">
+                    <span class="integ-contador-icon">{{ info[0] }}</span>
+                    <span class="integ-contador-num">{{ qtd }}</span>
+                    <span class="integ-contador-label">{{ info[1] }}</span>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p style="font-size:0.82rem;color:#aaa;">Nenhuma nota cadastrada ainda.</p>
+            {% endif %}
+
+            <div class="cf-aviso-box" style="margin-top:16px;">
+                <strong>ℹ Sobre credenciais e segurança</strong>
+                <p>Tokens, certificados digitais e credenciais de produção <strong>não devem ser inseridos diretamente no sistema</strong>. Configure-os como variáveis de ambiente quando a integração real for ativada.</p>
+                <p>Consulte a documentação e as regras do município/provedor antes de qualquer envio real.</p>
+            </div>
+
+            <a href="/status-fiscal" class="btn" style="display:block;text-align:center;background:#1a1f36;color:#fff;text-decoration:none;margin-top:12px;">
+                📋 Ver Status Fiscal das Notas →
+            </a>
+        </div>
+
+    </div>
+
+
+</main>
+<footer class="page-footer">
+    <p>Controle Financeiro — simples e eficiente</p>
+</footer>
+</div><!-- .page-wrap -->
+</div><!-- .app-wrapper -->
+
+
+
+<div class="toast-container" id="toast-container"></div>
+<script src="/static/app.js"></script>
+</body>
+</html>

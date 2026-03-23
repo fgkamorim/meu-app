@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nota Fiscal — Financeiro</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<div class="app-wrapper">
+
+<nav class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+        <span class="sidebar-brand-logo">💰</span>
+        <span class="sidebar-brand-name">Financeiro</span>
+        <button class="sidebar-close-btn" onclick="sidebarToggle()">✕</button>
+    </div>
+    <ul class="sidebar-nav">
+        <li><span class="sidebar-section-label">Principal</span></li>
+        <li><a href="/" class="sidebar-link"><span class="sidebar-icon">🏠</span>Dashboard</a></li>
+        <li><a href="/inteligencia" class="sidebar-link"><span class="sidebar-icon">💡</span>Inteligência</a></li>
+        <li><a href="/relatorio" class="sidebar-link"><span class="sidebar-icon">📊</span>Relatório</a></li>
+        <li><span class="sidebar-section-label">Financeiro</span></li>
+        <li><a href="/gestao" class="sidebar-link"><span class="sidebar-icon">👥</span>Gestão</a></li>
+        <li><a href="/notas" class="sidebar-link ativo"><span class="sidebar-icon">🧾</span>Notas Fiscais</a></li>
+        <li><a href="/recorrentes" class="sidebar-link"><span class="sidebar-icon">🔄</span>Recorrentes{% if rec_pendentes_qtd|default(0) > 0 %}<span class="badge-nav">{{ rec_pendentes_qtd }}</span>{% endif %}</a></li>
+        <li><span class="sidebar-section-label">Ferramentas</span></li>
+        <li><a href="/contador" class="sidebar-link"><span class="sidebar-icon">🔢</span>Contador</a></li>
+        <li><a href="/busca" class="sidebar-link"><span class="sidebar-icon">🔍</span>Busca</a></li>
+        <li><a href="/importar" class="sidebar-link"><span class="sidebar-icon">📥</span>Importar CSV</a></li>
+        <li><span class="sidebar-section-label">Sistema</span></li>
+        <li><a href="/sistema/backup" class="sidebar-link"><span class="sidebar-icon">💾</span>Backup</a></li>
+        <li><a href="/configuracao-fiscal" class="sidebar-link"><span class="sidebar-icon">⚙</span>Config. Fiscal</a></li>
+        <li><a href="/backup" class="sidebar-link"><span class="sidebar-icon">⬇</span>Baixar Backup</a></li>
+    </ul>
+</nav>
+
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="sidebarToggle()"></div>
+
+<div class="page-wrap">
+<header class="topbar">
+    <button class="hamburger-btn" onclick="sidebarToggle()">&#9776;</button>
+    <span class="topbar-title">🧾 Ver Nota Fiscal</span>
+    <div class="topbar-actions">
+        <a href="/notas" class="topbar-btn topbar-btn-blue">&#8592; Notas</a>
+    </div>
+</header>
+
+<main>
+    {% with msgs = get_flashed_messages(with_categories=true) %}{% if msgs %}
+    <div id="flash-data" style="display:none;">
+        {% for cat, msg in msgs %}
+        <span data-cat="{{ cat }}" data-msg="{{ msg }}"></span>
+        {% endfor %}
+    </div>
+    {% endif %}{% endwith %}
+
+    <div class="nota-view-wrap">
+
+        <!-- Mensagens de feedback de integração -->
+        {% set msg = request.args.get('msg_integ', '') %}
+        {% if msg == 'pronta' %}
+        <div class="cf-alerta cf-alerta-ok" style="margin-bottom:12px;">✅ Nota preparada para integração com sucesso! Payload gerado e validado.</div>
+        {% elif msg == 'erro_config' %}
+        <div class="integ-alerta-config" style="margin-bottom:12px;">⚠ <strong>Não foi possível preparar a nota.</strong> Preencha todos os campos obrigatórios na <a href="/configuracao-fiscal">Configuração Fiscal</a>.</div>
+        {% elif msg == 'simul_ok' %}
+        <div class="cf-alerta cf-alerta-ok" style="margin-bottom:12px;">📤 Envio simulado com sucesso! Protocolo fictício gerado. Nenhuma API real foi acionada.</div>
+        {% elif msg == 'simul_erro' %}
+        <div class="integ-alerta-config" style="margin-bottom:12px;">❌ <strong>Simulação falhou.</strong> Verifique a configuração fiscal e tente novamente.</div>
+        {% endif %}
+
+        <!-- Ações internas (impressão / edição / emissão) -->
+        <div class="nota-acoes">
+            {% if nota.status == 'rascunho' %}
+            <a href="/notas/editar/{{ nota.id }}" class="btn" style="background:#fef3c7;color:#92400e;font-size:0.85rem;">✏ Editar Rascunho</a>
+            <a href="/notas/emitir/{{ nota.id }}" class="btn" style="background:#22c55e;color:#fff;font-size:0.85rem;"
+               onclick="return confirm('Emitir a nota {{ nota.numero_nota }}? Esta ação não poderá ser desfeita facilmente.')">✅ Emitir Nota</a>
+            <a href="/notas/excluir/{{ nota.id }}" class="btn" style="background:#fee2e2;color:#dc2626;font-size:0.85rem;"
+               onclick="return confirm('Excluir rascunho {{ nota.numero_nota }}?')">🗑 Excluir</a>
+            {% elif nota.status == 'emitida' %}
+            <a href="/notas/cancelar/{{ nota.id }}" class="btn" style="background:#fee2e2;color:#dc2626;font-size:0.85rem;"
+               onclick="return confirm('Cancelar a nota {{ nota.numero_nota }}?')">❌ Cancelar Nota</a>
+            {% endif %}
+            <button onclick="window.print()" class="btn" style="background:#e8eaf0;color:#1a1f36;font-size:0.85rem;cursor:pointer;">🖨 Imprimir</button>
+            <a href="/notas/exportar/{{ nota.id }}" class="btn" style="background:#f0fdf4;color:#15803d;font-size:0.85rem;border:1px solid #86efac;">⬇ Exportar HTML</a>
+        </div>
+
+        <!-- Documento -->
+        <div class="nota-doc">
+            <div class="nota-doc-header">
+                <div class="nota-doc-titulo">
+                    <span class="nota-doc-tipo">NOTA FISCAL INTERNA</span>
+                    <span class="nota-doc-numero">{{ nota.numero_nota }}</span>
+                </div>
+                <div class="nota-doc-status">
+                    {% if nota.status == 'emitida' %}
+                    <span class="badge-nf badge-nf-emitida" style="font-size:0.9rem;padding:5px 14px;">✅ Emitida</span>
+                    {% elif nota.status == 'rascunho' %}
+                    <span class="badge-nf badge-nf-rascunho" style="font-size:0.9rem;padding:5px 14px;">📝 Rascunho</span>
+                    {% else %}
+                    <span class="badge-nf badge-nf-cancelada" style="font-size:0.9rem;padding:5px 14px;">❌ Cancelada</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="nota-doc-body">
+
+                <div class="nota-secao">
+                    <span class="nota-secao-titulo">📅 Data de Emissão</span>
+                    <span class="nota-secao-valor">{{ nota.data_emissao }}</span>
+                </div>
+
+                <div class="nota-linha-dupla">
+                    <div class="nota-secao">
+                        <span class="nota-secao-titulo">👤 Cliente</span>
+                        <span class="nota-secao-valor nota-nome">{{ nota.cliente_nome }}</span>
+                        <span class="nota-secao-detalhe">
+                            {% if nota.cliente_tipo == 'pj' %}Pessoa Jurídica{% else %}Pessoa Física{% endif %}
+                            {% if nota.cpf_cnpj %} · {{ nota.cpf_cnpj }}{% endif %}
+                        </span>
+                        {% if nota.email %}<span class="nota-secao-detalhe">{{ nota.email }}</span>{% endif %}
+                        {% if nota.telefone %}<span class="nota-secao-detalhe">{{ nota.telefone }}</span>{% endif %}
+                    </div>
+
+                    <div class="nota-secao">
+                        <span class="nota-secao-titulo">🛠 Serviço</span>
+                        <span class="nota-secao-valor nota-nome">{{ nota.servico_nome }}</span>
+                        {% if nota.servico_descricao %}
+                        <span class="nota-secao-detalhe">{{ nota.servico_descricao }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                {% if nota.descricao %}
+                <div class="nota-secao">
+                    <span class="nota-secao-titulo">📋 Descrição</span>
+                    <span class="nota-secao-valor">{{ nota.descricao }}</span>
+                </div>
+                {% endif %}
+
+                {% if nota.faturamento_id %}
+                <div class="nota-secao">
+                    <span class="nota-secao-titulo">🔗 Faturamento Vinculado</span>
+                    <span class="nota-secao-valor" style="font-size:0.85rem;color:#6b7280;">
+                        Gerada a partir do faturamento #{{ nota.faturamento_id }}
+                    </span>
+                </div>
+                {% endif %}
+
+                <div class="nota-valor-destaque">
+                    <span class="nota-valor-label">Valor Total</span>
+                    <span class="nota-valor-num">R$ {{ "%.2f"|format(nota.valor) }}</span>
+                </div>
+
+            </div>
+
+            <div class="nota-doc-footer">
+                <p>Documento interno gerado em {{ nota.created_at }}. Esta nota não tem validade fiscal oficial. Integração com sistema de emissão será adicionada em etapas futuras.</p>
+            </div>
+        </div>
+
+        <!-- Seção de Integração Fiscal -->
+        <div class="integ-section">
+            <h3 class="integ-section-titulo">🔌 Integração Fiscal</h3>
+
+            <!-- Status atual de integração -->
+            {% set si = nota.status_integracao or 'nao_enviada' %}
+            {% set si_labels = {
+                'nao_enviada': ('⬜', 'Não enviada', 'integ-nao-enviada'),
+                'pronta_para_envio': ('📋', 'Pronta para envio', 'integ-pronta'),
+                'enviada_homologacao': ('📤', 'Enviada — Homologação', 'integ-enviada-hom'),
+                'enviada_producao': ('📤', 'Enviada — Produção', 'integ-enviada-prod'),
+                'autorizada': ('✅', 'Autorizada', 'integ-autorizada'),
+                'rejeitada': ('❌', 'Rejeitada', 'integ-rejeitada'),
+                'cancelamento_pendente': ('⏳', 'Cancelamento Pendente', 'integ-canc-pend'),
+                'cancelada_externamente': ('🚫', 'Cancelada Externamente', 'integ-cancelada'),
+            } %}
+            {% set si_info = si_labels.get(si, ('⬜', si, 'integ-nao-enviada')) %}
+
+            <div class="integ-status-row">
+                <div>
+                    <span style="font-size:0.72rem;color:#888;text-transform:uppercase;font-weight:700;">Status de Integração</span>
+                    <div style="margin-top:4px;">
+                        <span class="integ-badge {{ si_info[2] }}" style="font-size:0.9rem;padding:5px 14px;">
+                            {{ si_info[0] }} {{ si_info[1] }}
+                        </span>
+                    </div>
+                </div>
+
+                <div class="integ-acoes">
+                    <!-- Preparar para integração -->
+                    {% if nota.status != 'cancelada' %}
+                    <form method="POST" action="/notas/preparar/{{ nota.id }}" style="display:inline;">
+                        <button type="submit" class="btn integ-btn-preparar"
+                                onclick="return confirm('Validar dados e preparar esta nota para integração?')">
+                            📋 Preparar para Integração
+                        </button>
+                    </form>
+
+                    <!-- Simular envio fiscal -->
+                    <form method="POST" action="/notas/simular/{{ nota.id }}" style="display:inline;">
+                        <button type="submit" class="btn integ-btn-simular"
+                                onclick="return confirm('Simular envio fiscal desta nota? Nenhuma API real será acionada.')">
+                            📤 Simular Envio Fiscal
+                        </button>
+                    </form>
+                    {% endif %}
+
+                    <!-- Ver histórico de eventos -->
+                    <a href="/notas/eventos/{{ nota.id }}" class="btn integ-btn-eventos">
+                        🕒 Ver Histórico de Eventos
+                    </a>
+                </div>
+            </div>
+
+            {% if nota.payload_fiscal %}
+            <details class="integ-payload-detalhes">
+                <summary>Ver payload preparado (dados técnicos)</summary>
+                <pre class="integ-payload-pre">{{ nota.payload_fiscal }}</pre>
+            </details>
+            {% endif %}
+
+            <p class="integ-aviso-texto">
+                ⚠ <strong>Emissão oficial ainda não ativada.</strong> O fluxo atual é de preparação/simulação.
+                Nenhuma API externa é acionada. Consulte a documentação antes da integração real.
+            </p>
+        </div>
+
+    </div>
+
+</main>
+<footer class="page-footer">
+    <p>Controle Financeiro — simples e eficiente</p>
+</footer>
+</div><!-- .page-wrap -->
+</div><!-- .app-wrapper -->
+
+
+
+<div class="toast-container" id="toast-container"></div>
+<script src="/static/app.js"></script>
+</body>
+</html>

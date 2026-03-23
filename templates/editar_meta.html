@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Editar Meta — Financeiro</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<div class="app-wrapper">
+
+<nav class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+        <span class="sidebar-brand-logo">💰</span>
+        <span class="sidebar-brand-name">Financeiro</span>
+        <button class="sidebar-close-btn" onclick="sidebarToggle()">✕</button>
+    </div>
+    <ul class="sidebar-nav">
+        <li><span class="sidebar-section-label">Principal</span></li>
+        <li><a href="/" class="sidebar-link ativo"><span class="sidebar-icon">🏠</span>Dashboard</a></li>
+        <li><a href="/inteligencia" class="sidebar-link"><span class="sidebar-icon">💡</span>Inteligência</a></li>
+        <li><a href="/relatorio" class="sidebar-link"><span class="sidebar-icon">📊</span>Relatório</a></li>
+        <li><span class="sidebar-section-label">Financeiro</span></li>
+        <li><a href="/gestao" class="sidebar-link"><span class="sidebar-icon">👥</span>Gestão</a></li>
+        <li><a href="/notas" class="sidebar-link"><span class="sidebar-icon">🧾</span>Notas Fiscais</a></li>
+        <li><a href="/recorrentes" class="sidebar-link"><span class="sidebar-icon">🔄</span>Recorrentes{% if rec_pendentes_qtd|default(0) > 0 %}<span class="badge-nav">{{ rec_pendentes_qtd }}</span>{% endif %}</a></li>
+        <li><span class="sidebar-section-label">Ferramentas</span></li>
+        <li><a href="/contador" class="sidebar-link"><span class="sidebar-icon">🔢</span>Contador</a></li>
+        <li><a href="/busca" class="sidebar-link"><span class="sidebar-icon">🔍</span>Busca</a></li>
+        <li><a href="/importar" class="sidebar-link"><span class="sidebar-icon">📥</span>Importar CSV</a></li>
+        <li><span class="sidebar-section-label">Sistema</span></li>
+        <li><a href="/sistema/backup" class="sidebar-link"><span class="sidebar-icon">💾</span>Backup</a></li>
+        <li><a href="/configuracao-fiscal" class="sidebar-link"><span class="sidebar-icon">⚙</span>Config. Fiscal</a></li>
+        <li><a href="/backup" class="sidebar-link"><span class="sidebar-icon">⬇</span>Baixar Backup</a></li>
+    </ul>
+</nav>
+
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="sidebarToggle()"></div>
+
+<div class="page-wrap">
+<header class="topbar">
+    <button class="hamburger-btn" onclick="sidebarToggle()">&#9776;</button>
+    <span class="topbar-title">✏ Editar Meta</span>
+    <div class="topbar-actions">
+        <a href="/" class="topbar-btn topbar-btn-blue">&#8592; Dashboard</a>
+    </div>
+</header>
+
+<main>
+    {% with msgs = get_flashed_messages(with_categories=true) %}{% if msgs %}
+    <div id="flash-data" style="display:none;">
+        {% for cat, msg in msgs %}
+        <span data-cat="{{ cat }}" data-msg="{{ msg }}"></span>
+        {% endfor %}
+    </div>
+    {% endif %}{% endwith %}
+
+    <section class="formularios" style="max-width:560px;margin:0 auto;">
+        <div class="form-card" style="width:100%;">
+            <h2 class="form-title" style="color:#1a1f36;border-bottom-color:#e8eaf0;">✏️ Editar Meta</h2>
+            <form method="POST" action="/metas/editar/{{ meta.id }}">
+                <input type="hidden" name="periodo_ativo" value="{{ periodo }}">
+
+                <div class="form-group">
+                    <label>Nome da Meta</label>
+                    <input type="text" name="nome" value="{{ meta.nome }}" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Tipo</label>
+                    <select name="tipo_meta">
+                        <option value="meta"        {% if meta.tipo == 'meta'        %}selected{% endif %}>Meta Financeira</option>
+                        <option value="reserva"     {% if meta.tipo == 'reserva'     %}selected{% endif %}>Reserva de Emergência</option>
+                        <option value="investimento"{% if meta.tipo == 'investimento'%}selected{% endif %}>Investimento</option>
+                    </select>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Valor Objetivo (R$)</label>
+                        <input type="number" name="valor_objetivo" step="0.01" min="0.01" value="{{ meta.valor_objetivo }}" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Valor Atual (R$)</label>
+                        <input type="number" name="valor_atual" step="0.01" min="0" value="{{ meta.valor_atual }}">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Prazo (opcional)</label>
+                    <input type="date" name="prazo" value="{{ meta.prazo or '' }}">
+                </div>
+
+                <div class="form-group">
+                    <label>Descrição (opcional)</label>
+                    <input type="text" name="descricao" value="{{ meta.descricao or '' }}" placeholder="Detalhes sobre a meta">
+                </div>
+
+                <button type="submit" class="btn" style="background:#1a1f36;color:#fff;">Salvar Alterações</button>
+            </form>
+        </div>
+    </section>
+
+</main>
+<footer class="page-footer">
+    <p>Controle Financeiro — simples e eficiente</p>
+</footer>
+</div><!-- .page-wrap -->
+</div><!-- .app-wrapper -->
+
+
+
+<div class="toast-container" id="toast-container"></div>
+<script src="/static/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Importar CSV — Financeiro</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<div class="app-wrapper">
+
+<nav class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+        <span class="sidebar-brand-logo">💰</span>
+        <span class="sidebar-brand-name">Financeiro</span>
+        <button class="sidebar-close-btn" onclick="sidebarToggle()">✕</button>
+    </div>
+    <ul class="sidebar-nav">
+        <li><span class="sidebar-section-label">Principal</span></li>
+        <li><a href="/" class="sidebar-link"><span class="sidebar-icon">🏠</span>Dashboard</a></li>
+        <li><a href="/inteligencia" class="sidebar-link"><span class="sidebar-icon">💡</span>Inteligência</a></li>
+        <li><a href="/relatorio" class="sidebar-link"><span class="sidebar-icon">📊</span>Relatório</a></li>
+        <li><span class="sidebar-section-label">Financeiro</span></li>
+        <li><a href="/gestao" class="sidebar-link"><span class="sidebar-icon">👥</span>Gestão</a></li>
+        <li><a href="/notas" class="sidebar-link"><span class="sidebar-icon">🧾</span>Notas Fiscais</a></li>
+        <li><a href="/recorrentes" class="sidebar-link"><span class="sidebar-icon">🔄</span>Recorrentes{% if rec_pendentes_qtd|default(0) > 0 %}<span class="badge-nav">{{ rec_pendentes_qtd }}</span>{% endif %}</a></li>
+        <li><span class="sidebar-section-label">Ferramentas</span></li>
+        <li><a href="/contador" class="sidebar-link"><span class="sidebar-icon">🔢</span>Contador</a></li>
+        <li><a href="/busca" class="sidebar-link"><span class="sidebar-icon">🔍</span>Busca</a></li>
+        <li><a href="/importar" class="sidebar-link ativo"><span class="sidebar-icon">📥</span>Importar CSV</a></li>
+        <li><span class="sidebar-section-label">Sistema</span></li>
+        <li><a href="/sistema/backup" class="sidebar-link"><span class="sidebar-icon">💾</span>Backup</a></li>
+        <li><a href="/configuracao-fiscal" class="sidebar-link"><span class="sidebar-icon">⚙</span>Config. Fiscal</a></li>
+        <li><a href="/backup" class="sidebar-link"><span class="sidebar-icon">⬇</span>Baixar Backup</a></li>
+    </ul>
+</nav>
+
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="sidebarToggle()"></div>
+
+<div class="page-wrap">
+<header class="topbar">
+    <button class="hamburger-btn" onclick="sidebarToggle()">&#9776;</button>
+    <span class="topbar-title">📥 Importar Dados via CSV</span>
+    <div class="topbar-actions">
+        <a href="/" class="topbar-btn topbar-btn-dark">Ver Dashboard</a>
+    </div>
+</header>
+
+<main>
+
+    {% with msgs = get_flashed_messages(with_categories=true) %}{% if msgs %}
+    <div id="flash-data" style="display:none;">
+        {% for cat, msg in msgs %}
+        <span data-cat="{{ cat }}" data-msg="{{ msg }}"></span>
+        {% endfor %}
+    </div>
+    {% endif %}{% endwith %}
+
+{% if step == 'upload' %}
+<!-- ══ ETAPA 1: Upload ════════════════════════════════════════════════════════ -->
+
+<div class="import-layout">
+
+    <!-- Card principal de upload -->
+    <div class="import-upload-card">
+        <div class="import-upload-icon">📥</div>
+        <h2 style="margin:0 0 6px;font-size:1.2rem;">Importar Lançamentos via CSV</h2>
+        <p style="color:#6b7280;font-size:0.87rem;margin:0 0 22px;">Importe múltiplos lançamentos de uma vez a partir de um arquivo CSV exportado do seu banco, planilha ou outro sistema.</p>
+
+        <form method="POST" action="/importar" enctype="multipart/form-data" class="import-form">
+            <div class="import-dropzone" id="dropzone">
+                <div class="import-drop-icon">📂</div>
+                <div class="import-drop-txt">Arraste o arquivo CSV aqui ou clique para selecionar</div>
+                <div class="import-drop-sub" id="drop-filename">Formato aceito: .csv (UTF-8, vírgula ou ponto e vírgula)</div>
+                <input type="file" name="csv_file" id="csv_file" accept=".csv" required style="display:none;" onchange="mostrarNomeArquivo(this)">
+                <button type="button" class="topbar-btn topbar-btn-blue" style="margin-top:12px;" onclick="document.getElementById('csv_file').click()">
+                    Selecionar arquivo
+                </button>
+            </div>
+            <button type="submit" class="btn-importar-submit" id="btn-submit" disabled>
+                🔍 Analisar e visualizar prévia
+            </button>
+        </form>
+    </div>
+
+    <!-- Instruções -->
+    <div class="import-info-card">
+        <h3 style="margin:0 0 12px;font-size:0.95rem;color:#1a1f36;">📋 Formato do CSV</h3>
+        <p style="font-size:0.83rem;color:#6b7280;margin:0 0 12px;">O sistema reconhece automaticamente as colunas. Inclua ao menos <strong>data</strong> e <strong>valor</strong>.</p>
+
+        <div class="import-cols-grid">
+            <div class="import-col-item">
+                <span class="import-col-badge import-col-req">Obrigatório</span>
+                <strong>data</strong>
+                <span>DD/MM/AAAA ou AAAA-MM-DD</span>
+            </div>
+            <div class="import-col-item">
+                <span class="import-col-badge import-col-req">Obrigatório</span>
+                <strong>valor</strong>
+                <span>Ex: 150.00 ou R$ 1.250,00</span>
+            </div>
+            <div class="import-col-item">
+                <span class="import-col-badge import-col-opt">Opcional</span>
+                <strong>tipo</strong>
+                <span>entrada / despesa</span>
+            </div>
+            <div class="import-col-item">
+                <span class="import-col-badge import-col-opt">Opcional</span>
+                <strong>descricao</strong>
+                <span>Texto livre</span>
+            </div>
+            <div class="import-col-item">
+                <span class="import-col-badge import-col-opt">Opcional</span>
+                <strong>categoria</strong>
+                <span>alimentação, aluguel, etc.</span>
+            </div>
+            <div class="import-col-item">
+                <span class="import-col-badge import-col-opt">Opcional</span>
+                <strong>subtipo</strong>
+                <span>fixa / variável</span>
+            </div>
+        </div>
+
+        <div class="import-exemplo">
+            <div style="font-size:0.75rem;font-weight:700;color:#6b7280;text-transform:uppercase;margin-bottom:6px;">Exemplo</div>
+            <pre class="import-pre">data,descricao,valor,tipo,categoria
+15/03/2026,Salário,5000.00,entrada,salário
+16/03/2026,Aluguel,1500.00,despesa,aluguel
+17/03/2026,Supermercado,380.50,despesa,alimentação</pre>
+        </div>
+
+        <div style="background:#f0fdf4;border-radius:8px;padding:10px 12px;margin-top:12px;">
+            <p style="font-size:0.8rem;color:#15803d;margin:0;"><strong>✅ Proteção automática:</strong> O sistema detecta duplicatas por data + valor + descrição e ignora registros já existentes.</p>
+        </div>
+    </div>
+
+</div>
+
+{% elif step == 'preview' %}
+<!-- ══ ETAPA 2: Prévia e Confirmação ════════════════════════════════════════ -->
+
+<div class="import-preview-header">
+    <div class="import-preview-stats">
+        <div class="import-stat import-stat-ok">
+            <span class="import-stat-num">{{ total }}</span>
+            <span class="import-stat-label">Válidos</span>
+        </div>
+        <div class="import-stat import-stat-err">
+            <span class="import-stat-num">{{ total_erros }}</span>
+            <span class="import-stat-label">Com erro</span>
+        </div>
+        <div class="import-stat import-stat-info">
+            <span class="import-stat-num">{{ total + total_erros }}</span>
+            <span class="import-stat-label">Total lido</span>
+        </div>
+    </div>
+    <div>
+        <a href="/importar" class="topbar-btn topbar-btn-blue" style="text-decoration:none;">← Novo arquivo</a>
+    </div>
+</div>
+
+{% if erros %}
+<div class="import-erros-box">
+    <strong>⚠ Linhas com erro (ignoradas na importação):</strong>
+    <ul style="margin:8px 0 0;padding-left:18px;font-size:0.82rem;">
+        {% for e in erros[:10] %}
+        <li>Linha {{ e.linha }}: {{ e.erro }}</li>
+        {% endfor %}
+        {% if erros|length > 10 %}<li style="color:#9ca3af;">... e mais {{ erros|length - 10 }} erros</li>{% endif %}
+    </ul>
+</div>
+{% endif %}
+
+{% if linhas %}
+<form method="POST" action="/importar/confirmar">
+    <div class="import-preview-actions">
+        <p style="font-size:0.87rem;color:#6b7280;margin:0;">Revise e edite os dados abaixo. Desmarque linhas que não deseja importar.</p>
+        <button type="submit" class="btn-importar-submit" style="width:auto;padding:10px 24px;">
+            ✅ Confirmar e importar {{ total }} registro(s)
+        </button>
+    </div>
+
+    <div class="table-wrap" style="margin-top:12px;">
+        <table class="import-preview-table">
+            <thead>
+                <tr>
+                    <th style="width:36px;text-align:center;">✓</th>
+                    <th>Data</th>
+                    <th>Descrição</th>
+                    <th>Valor</th>
+                    <th>Tipo</th>
+                    <th>Categoria</th>
+                    <th>Subtipo</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for linha in linhas %}
+                <tr class="import-row import-row-{{ linha.tipo }}">
+                    <td style="text-align:center;">
+                        <input type="checkbox" name="idx" value="{{ loop.index0 }}" checked>
+                    </td>
+                    <td>
+                        <input type="date" name="data_{{ loop.index0 }}" value="{{ linha.data }}" class="import-input-sm" required>
+                    </td>
+                    <td>
+                        <input type="text" name="descricao_{{ loop.index0 }}" value="{{ linha.descricao }}" class="import-input-md" required>
+                    </td>
+                    <td>
+                        <input type="number" name="valor_{{ loop.index0 }}" value="{{ '%.2f'|format(linha.valor) }}" step="0.01" min="0.01" class="import-input-sm" required>
+                    </td>
+                    <td>
+                        <select name="tipo_{{ loop.index0 }}" class="import-select">
+                            <option value="entrada" {% if linha.tipo == 'entrada' %}selected{% endif %}>Entrada</option>
+                            <option value="despesa" {% if linha.tipo == 'despesa' %}selected{% endif %}>Despesa</option>
+                        </select>
+                    </td>
+                    <td>
+                        <input type="text" name="categoria_{{ loop.index0 }}" value="{{ linha.categoria }}" class="import-input-sm"
+                               style="{% if linha.cat_sugerida %}border-color:#a78bfa;{% endif %}">
+                        {% if linha.cat_sugerida %}<span style="font-size:0.65rem;color:#7c3aed;" title="Categoria sugerida automaticamente">✨</span>{% endif %}
+                    </td>
+                    <td>
+                        <select name="subtipo_{{ loop.index0 }}" class="import-select">
+                            <option value="" {% if not linha.subtipo %}selected{% endif %}>—</option>
+                            <option value="fixa" {% if linha.subtipo == 'fixa' %}selected{% endif %}>Fixa</option>
+                            <option value="variável" {% if linha.subtipo == 'variável' %}selected{% endif %}>Variável</option>
+                        </select>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="import-preview-actions" style="margin-top:16px;">
+        <p style="font-size:0.85rem;color:#9ca3af;margin:0;">Categorias marcadas com ✨ foram sugeridas automaticamente com base na descrição.</p>
+        <button type="submit" class="btn-importar-submit" style="width:auto;padding:10px 24px;">
+            ✅ Confirmar e importar {{ total }} registro(s)
+        </button>
+    </div>
+
+</form>
+{% else %}
+<div style="text-align:center;padding:40px;color:#6b7280;">
+    <p>Nenhum registro válido para importar.</p>
+    <a href="/importar" class="topbar-btn topbar-btn-blue" style="text-decoration:none;">← Tentar outro arquivo</a>
+</div>
+{% endif %}
+
+{% endif %}
+
+</main>
+<footer class="page-footer">
+    <p>Controle Financeiro — simples e eficiente</p>
+</footer>
+</div><!-- .page-wrap -->
+</div><!-- .app-wrapper -->
+
+<div class="toast-container" id="toast-container"></div>
+<script src="/static/app.js"></script>
+<script>
+function mostrarNomeArquivo(input) {
+    var btn = document.getElementById('btn-submit');
+    var lbl = document.getElementById('drop-filename');
+    if (input.files && input.files[0]) {
+        lbl.textContent = '✅ ' + input.files[0].name + ' (' + (input.files[0].size / 1024).toFixed(1) + ' KB)';
+        btn.disabled = false;
+        btn.style.opacity = '1';
+    }
+}
+var dz = document.getElementById('dropzone');
+if (dz) {
+    dz.addEventListener('dragover', function(e) { e.preventDefault(); dz.classList.add('dropzone-over'); });
+    dz.addEventListener('dragleave', function() { dz.classList.remove('dropzone-over'); });
+    dz.addEventListener('drop', function(e) {
+        e.preventDefault(); dz.classList.remove('dropzone-over');
+        var fi = document.getElementById('csv_file');
+        if (e.dataTransfer.files.length) {
+            fi.files = e.dataTransfer.files;
+            mostrarNomeArquivo(fi);
+        }
+    });
+    dz.addEventListener('click', function(e) {
+        if (e.target.tagName !== 'BUTTON') document.getElementById('csv_file').click();
+    });
+}
+</script>
+</body>
+</html>

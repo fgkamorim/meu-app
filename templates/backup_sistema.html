@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Backup — Financeiro</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<div class="app-wrapper">
+
+<nav class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+        <span class="sidebar-brand-logo">💰</span>
+        <span class="sidebar-brand-name">Financeiro</span>
+        <button class="sidebar-close-btn" onclick="sidebarToggle()">✕</button>
+    </div>
+    <ul class="sidebar-nav">
+        <li><span class="sidebar-section-label">Principal</span></li>
+        <li><a href="/" class="sidebar-link"><span class="sidebar-icon">🏠</span>Dashboard</a></li>
+        <li><a href="/inteligencia" class="sidebar-link"><span class="sidebar-icon">💡</span>Inteligência</a></li>
+        <li><a href="/relatorio" class="sidebar-link"><span class="sidebar-icon">📊</span>Relatório</a></li>
+        <li><span class="sidebar-section-label">Financeiro</span></li>
+        <li><a href="/gestao" class="sidebar-link"><span class="sidebar-icon">👥</span>Gestão</a></li>
+        <li><a href="/notas" class="sidebar-link"><span class="sidebar-icon">🧾</span>Notas Fiscais</a></li>
+        <li><a href="/recorrentes" class="sidebar-link"><span class="sidebar-icon">🔄</span>Recorrentes
+            {% if rec_pendentes_qtd|default(0) > 0 %}<span class="badge-nav">{{ rec_pendentes_qtd }}</span>{% endif %}</a></li>
+        <li><span class="sidebar-section-label">Ferramentas</span></li>
+        <li><a href="/contador" class="sidebar-link"><span class="sidebar-icon">🔢</span>Contador</a></li>
+        <li><a href="/busca" class="sidebar-link"><span class="sidebar-icon">🔍</span>Busca</a></li>
+        <li><a href="/importar" class="sidebar-link"><span class="sidebar-icon">📥</span>Importar CSV</a></li>
+        <li><span class="sidebar-section-label">Sistema</span></li>
+        <li><a href="/sistema/backup" class="sidebar-link ativo"><span class="sidebar-icon">💾</span>Backup</a></li>
+        <li><a href="/configuracao-fiscal" class="sidebar-link"><span class="sidebar-icon">⚙</span>Config. Fiscal</a></li>
+        <li><a href="/backup" class="sidebar-link"><span class="sidebar-icon">⬇</span>Baixar Backup</a></li>
+    </ul>
+</nav>
+
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="sidebarToggle()"></div>
+
+<div class="page-wrap">
+<header class="topbar">
+    <button class="hamburger-btn" onclick="sidebarToggle()">&#9776;</button>
+    <span class="topbar-title">💾 Backup do Sistema</span>
+    <div class="topbar-actions">
+        
+    </div>
+</header>
+
+<main>
+
+    {% with msgs = get_flashed_messages(with_categories=true) %}{% if msgs %}
+    <div id="flash-data" style="display:none;">
+        {% for cat, msg in msgs %}
+        <span data-cat="{{ cat }}" data-msg="{{ msg }}"></span>
+        {% endfor %}
+    </div>
+    {% endif %}{% endwith %}
+
+
+    <h2 class="sec-titulo" style="margin-top:0;">🗄 Backup do Sistema</h2>
+
+    <!-- Mensagens de feedback -->
+    {% if msg_sucesso %}
+    <div class="backup-msg backup-msg-sucesso">
+        ✅ <strong>{{ msg_sucesso }}</strong>
+        {% if detalhes_sucesso %}
+        <ul class="backup-detalhes">
+            {% for item in detalhes_sucesso %}<li>{{ item }}</li>{% endfor %}
+        </ul>
+        {% endif %}
+        {% if detalhes_erro %}
+        <p style="margin-top:8px;font-size:0.82rem;color:#92400e;">
+            Itens ignorados por segurança: {{ detalhes_erro | join(", ") }}
+        </p>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {% if msg_erro %}
+    <div class="backup-msg backup-msg-erro">
+        ❌ <strong>{{ msg_erro }}</strong>
+    </div>
+    {% endif %}
+
+    <!-- Grid principal -->
+    <div class="backup-grid">
+
+        <!-- COLUNA 1: Exportar -->
+        <div class="intel-card">
+            <h3 class="intel-titulo">⬇ Exportar Backup</h3>
+
+            <!-- Backup Completo -->
+            <div class="backup-opcao">
+                <div class="backup-opcao-info">
+                    <span class="backup-opcao-titulo">📦 Backup Completo</span>
+                    <span class="backup-opcao-desc">
+                        Inclui todo o código-fonte (app.py, templates, static) <strong>e</strong> o banco de dados com todos os seus dados. Arquivo .zip com data e hora no nome.
+                    </span>
+                    <span class="backup-tag backup-tag-recomendado">Recomendado</span>
+                </div>
+                <a href="/backup/completo" class="btn-backup-acao btn-backup-principal">
+                    ⬇ Baixar Backup Completo
+                </a>
+            </div>
+
+            <div class="backup-divisor"></div>
+
+            <!-- Só banco de dados -->
+            <div class="backup-opcao">
+                <div class="backup-opcao-info">
+                    <span class="backup-opcao-titulo">🗃 Somente Banco de Dados</span>
+                    <span class="backup-opcao-desc">
+                        Baixa apenas o arquivo <code>database.db</code> com todos os seus lançamentos, clientes, serviços, notas e dados financeiros.
+                        {% if db_size_kb %}
+                        <span style="color:#16a34a;font-weight:700;">Tamanho atual: {{ db_size_kb }} KB</span>
+                        {% endif %}
+                    </span>
+                </div>
+                <a href="/backup" class="btn-backup-acao btn-backup-sec">
+                    ⬇ Baixar Banco de Dados
+                </a>
+            </div>
+
+            <div class="backup-divisor"></div>
+
+            <!-- Só código -->
+            <div class="backup-opcao">
+                <div class="backup-opcao-info">
+                    <span class="backup-opcao-titulo">💻 Somente Código-Fonte</span>
+                    <span class="backup-opcao-desc">
+                        Baixa apenas os arquivos de programação (app.py, templates/, static/). Não inclui o banco de dados. Útil para mover o projeto para outro servidor.
+                    </span>
+                </div>
+                <a href="/download-project" class="btn-backup-acao btn-backup-sec">
+                    ⬇ Baixar Código-Fonte
+                </a>
+            </div>
+
+        </div>
+
+        <!-- COLUNA 2: Importar -->
+        <div class="intel-card">
+            <h3 class="intel-titulo">⬆ Importar / Restaurar Backup</h3>
+
+            <div class="aviso-simulacao" style="margin-bottom:18px;">
+                ⚠ <strong>Atenção:</strong> A importação sobrescreve os arquivos atuais do sistema. Use apenas backups gerados por este sistema. Faça um backup antes de importar.
+            </div>
+
+            <form method="POST" action="/backup/importar" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label>Selecione o arquivo .zip de backup</label>
+                    <input type="file" name="arquivo" accept=".zip" required
+                           style="padding:8px;background:#fafafa;border:1.5px dashed #ccc;border-radius:6px;cursor:pointer;width:100%;">
+                    <span class="form-hint">Apenas arquivos .zip gerados por este sistema são aceitos.</span>
+                </div>
+
+                <button type="submit" class="btn" style="background:#1a1f36;color:#fff;margin-top:4px;"
+                        onclick="return confirm('Tem certeza? Os arquivos atuais serão substituídos pelos do backup.')">
+                    ⬆ Restaurar Backup
+                </button>
+            </form>
+
+            <div class="backup-divisor" style="margin-top:22px;"></div>
+
+            <!-- O que é restaurado -->
+            <div style="margin-top:16px;">
+                <p style="font-size:0.82rem;font-weight:700;color:#555;margin-bottom:8px;">O que é restaurado:</p>
+                <ul class="backup-info-lista">
+                    <li>✅ <code>app.py</code> — lógica do sistema</li>
+                    <li>✅ <code>templates/</code> — páginas HTML</li>
+                    <li>✅ <code>static/</code> — estilos e scripts</li>
+                    <li>✅ <code>database.db</code> — banco de dados</li>
+                    <li>❌ Arquivos fora dessas pastas são ignorados</li>
+                    <li>❌ Arquivos com extensões não permitidas são bloqueados</li>
+                </ul>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Informações e avisos -->
+    <div class="backup-info-grid">
+
+        <div class="intel-card">
+            <h3 class="intel-titulo">ℹ O que entra no backup completo?</h3>
+            <ul class="backup-info-lista" style="margin-top:6px;">
+                <li>📄 <code>app.py</code> — toda a lógica e rotas do sistema</li>
+                <li>🗂 <code>templates/</code> — todas as páginas HTML</li>
+                <li>🎨 <code>static/</code> — CSS e arquivos de estilo</li>
+                <li>🗃 <code>database.db</code> — todos os seus dados financeiros</li>
+                <li>📋 <code>pyproject.toml</code>, <code>replit.md</code> e arquivos de configuração</li>
+            </ul>
+        </div>
+
+        <div class="intel-card">
+            <h3 class="intel-titulo">🔒 Segurança da importação</h3>
+            <ul class="backup-info-lista" style="margin-top:6px;">
+                <li>✅ Apenas arquivos .zip são aceitos</li>
+                <li>✅ Path traversal é bloqueado automaticamente</li>
+                <li>✅ Somente extensões seguras são restauradas (.py, .html, .css, .js...)</li>
+                <li>✅ Pastas fora da lista permitida são ignoradas</li>
+                <li>⚠ Sempre faça um backup antes de restaurar</li>
+            </ul>
+        </div>
+
+        <div class="intel-card">
+            <h3 class="intel-titulo">💡 Boas práticas</h3>
+            <ul class="backup-info-lista" style="margin-top:6px;">
+                <li>📅 Faça backup regularmente, especialmente antes de alterações</li>
+                <li>☁ Guarde os arquivos em local seguro (nuvem, HD externo)</li>
+                <li>🔄 Teste a restauração periodicamente para garantir integridade</li>
+                <li>🗃 O banco de dados contém todos os seus dados — priorize ele</li>
+            </ul>
+        </div>
+
+    </div>
+
+
+</main>
+<footer class="page-footer">
+    <p>Controle Financeiro — simples e eficiente</p>
+</footer>
+</div><!-- .page-wrap -->
+</div><!-- .app-wrapper -->
+
+<div class="toast-container" id="toast-container"></div>
+<script src="/static/app.js"></script>
+
+</body>
+</html>

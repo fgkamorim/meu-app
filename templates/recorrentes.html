@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recorrentes — Financeiro</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<div class="app-wrapper">
+
+<nav class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+        <span class="sidebar-brand-logo">💰</span>
+        <span class="sidebar-brand-name">Financeiro</span>
+        <button class="sidebar-close-btn" onclick="sidebarToggle()">✕</button>
+    </div>
+    <ul class="sidebar-nav">
+        <li><span class="sidebar-section-label">Principal</span></li>
+        <li><a href="/" class="sidebar-link"><span class="sidebar-icon">🏠</span>Dashboard</a></li>
+        <li><a href="/inteligencia" class="sidebar-link"><span class="sidebar-icon">💡</span>Inteligência</a></li>
+        <li><a href="/relatorio" class="sidebar-link"><span class="sidebar-icon">📊</span>Relatório</a></li>
+        <li><span class="sidebar-section-label">Financeiro</span></li>
+        <li><a href="/gestao" class="sidebar-link"><span class="sidebar-icon">👥</span>Gestão</a></li>
+        <li><a href="/notas" class="sidebar-link"><span class="sidebar-icon">🧾</span>Notas Fiscais</a></li>
+        <li><a href="/recorrentes" class="sidebar-link ativo"><span class="sidebar-icon">🔄</span>Recorrentes
+            {% if rec_pendentes_qtd|default(0) > 0 %}<span class="badge-nav">{{ rec_pendentes_qtd }}</span>{% endif %}</a></li>
+        <li><span class="sidebar-section-label">Ferramentas</span></li>
+        <li><a href="/contador" class="sidebar-link"><span class="sidebar-icon">🔢</span>Contador</a></li>
+        <li><a href="/busca" class="sidebar-link"><span class="sidebar-icon">🔍</span>Busca</a></li>
+        <li><a href="/importar" class="sidebar-link"><span class="sidebar-icon">📥</span>Importar CSV</a></li>
+        <li><span class="sidebar-section-label">Sistema</span></li>
+        <li><a href="/sistema/backup" class="sidebar-link"><span class="sidebar-icon">💾</span>Backup</a></li>
+        <li><a href="/configuracao-fiscal" class="sidebar-link"><span class="sidebar-icon">⚙</span>Config. Fiscal</a></li>
+        <li><a href="/backup" class="sidebar-link"><span class="sidebar-icon">⬇</span>Baixar Backup</a></li>
+    </ul>
+</nav>
+
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="sidebarToggle()"></div>
+
+<div class="page-wrap">
+<header class="topbar">
+    <button class="hamburger-btn" onclick="sidebarToggle()">&#9776;</button>
+    <span class="topbar-title">🔄 Lançamentos Recorrentes</span>
+    <div class="topbar-actions">
+        
+    </div>
+</header>
+
+<main>
+
+    {% with msgs = get_flashed_messages(with_categories=true) %}{% if msgs %}
+    <div id="flash-data" style="display:none;">
+        {% for cat, msg in msgs %}
+        <span data-cat="{{ cat }}" data-msg="{{ msg }}"></span>
+        {% endfor %}
+    </div>
+    {% endif %}{% endwith %}
+
+
+    <section style="padding:0 0 18px;">
+        <h2 class="secao-titulo">🔄 Lançamentos Recorrentes</h2>
+        <p style="color:#666;font-size:0.9rem;margin:0 0 8px;">
+            Cadastre despesas e entradas que se repetem regularmente. O sistema evita duplicação ao gerar.
+        </p>
+
+        {% if msg %}
+        <div class="msg-sucesso" style="margin-bottom:14px;">
+            {% if msg == 'adicionado' %}✅ Recorrente adicionado com sucesso.
+            {% elif msg == 'editado' %}✅ Recorrente atualizado.
+            {% elif msg == 'excluido' %}✅ Recorrente excluído.
+            {% elif msg.startswith('gerados_') %}
+                {% set n = msg.split('_')[1] %}
+                {% if n|int > 0 %}
+                ✅ {{ n }} lançamento(s) recorrente(s) gerado(s) com sucesso!
+                {% else %}
+                ℹ Nenhum lançamento novo gerado (todos já existem ou nenhum no vencimento).
+                {% endif %}
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- Botão gerar recorrentes -->
+        {% set pendentes = recorrentes | selectattr('ativo', 'equalto', 1) | list %}
+        {% set vencidos = [] %}
+        {% for r in pendentes %}{% if r.proxima_data <= hoje %}{% set _ = vencidos.append(r) %}{% endif %}{% endfor %}
+
+        {% if vencidos %}
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;background:#fffbea;border:1px solid #f0c000;border-radius:10px;padding:14px 18px;">
+            <span style="font-size:1.4rem;">🔔</span>
+            <div style="flex:1">
+                <strong>{{ vencidos|length }} recorrente(s) no vencimento</strong>
+                <span style="color:#666;font-size:0.88rem;display:block;">Clique para gerar os lançamentos agora.</span>
+            </div>
+            <a href="/recorrentes/gerar" class="btn" style="background:#f0c000;color:#333;font-weight:600;white-space:nowrap;">⚡ Gerar agora</a>
+        </div>
+        {% else %}
+        <div style="margin-bottom:14px;">
+            <a href="/recorrentes/gerar" class="btn" style="background:#27ae60;color:#fff;">⚡ Gerar recorrentes do período</a>
+        </div>
+        {% endif %}
+    </section>
+
+    <div class="rec-grid">
+
+        <!-- Formulário de novo recorrente -->
+        <div class="form-card" id="form-novo-rec">
+            <h3 class="form-title" style="color:#1a1f36;border-bottom-color:#e8eaf0;font-size:0.95rem;">+ Novo Recorrente</h3>
+            <form method="POST" action="/recorrentes/adicionar">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Tipo</label>
+                        <select name="tipo" required>
+                            <option value="despesa">Despesa</option>
+                            <option value="entrada">Entrada</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Frequência</label>
+                        <select name="frequencia">
+                            <option value="mensal">Mensal</option>
+                            <option value="semanal">Semanal</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Descrição</label>
+                    <input type="text" name="descricao" placeholder="Ex: Aluguel do apto" required>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Categoria</label>
+                        <input type="text" name="categoria" placeholder="Ex: aluguel" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Subtipo</label>
+                        <select name="subtipo">
+                            <option value="">—</option>
+                            <option value="fixa">Fixa</option>
+                            <option value="variável">Variável</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Valor (R$)</label>
+                        <input type="number" name="valor" step="0.01" min="0.01" placeholder="0,00" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Próxima data</label>
+                        <input type="date" name="proxima_data" value="{{ hoje }}" required>
+                    </div>
+                </div>
+                <button type="submit" class="btn" style="background:#1a1f36;color:#fff;width:100%;">Cadastrar Recorrente</button>
+            </form>
+        </div>
+
+        <!-- Lista de recorrentes -->
+        <div>
+            {% if recorrentes %}
+            <div class="rec-lista">
+                {% for r in recorrentes %}
+                {% set vencido = r.proxima_data <= hoje and r.ativo %}
+                <div class="rec-card {% if not r.ativo %}rec-inativo{% elif vencido %}rec-vencido{% endif %}">
+                    <div class="rec-head">
+                        <div>
+                            <span class="rec-tipo {% if r.tipo == 'entrada' %}rec-tipo-entrada{% else %}rec-tipo-despesa{% endif %}">
+                                {{ '↑ Entrada' if r.tipo == 'entrada' else '↓ Despesa' }}
+                            </span>
+                            <span class="rec-desc">{{ r.descricao }}</span>
+                            {% if not r.ativo %}<span class="badge" style="background:#ccc;color:#555;font-size:0.72rem;">Inativo</span>{% endif %}
+                            {% if vencido %}<span class="badge" style="background:#ffc107;color:#333;font-size:0.72rem;">Vencido</span>{% endif %}
+                        </div>
+                        <div class="rec-acoes">
+                            <a href="/recorrentes/toggle/{{ r.id }}" class="btn-acao" title="{{ 'Desativar' if r.ativo else 'Ativar' }}">
+                                {{ '⏸' if r.ativo else '▶' }}
+                            </a>
+                            <button class="btn-acao btn-editar" onclick="abrirEdicao({{ r.id }})" title="Editar">✏</button>
+                            <a href="/recorrentes/excluir/{{ r.id }}" class="btn-acao btn-excluir" onclick="return confirm('Excluir este recorrente?')" title="Excluir">✕</a>
+                        </div>
+                    </div>
+                    <div class="rec-detalhes">
+                        <span><strong>R$ {{ "%.2f"|format(r.valor) }}</strong></span>
+                        <span>{{ r.categoria|capitalize }}</span>
+                        {% if r.subtipo %}<span class="badge badge-{{ 'fixa' if r.subtipo == 'fixa' else 'variavel' }}">{{ r.subtipo }}</span>{% endif %}
+                        <span>{{ 'Mensal' if r.frequencia == 'mensal' else 'Semanal' }}</span>
+                        <span class="{% if vencido %}vermelho fw7{% else %}{% endif %}">📅 {{ r.proxima_data }}</span>
+                    </div>
+
+                    <!-- Form edição inline (oculto) -->
+                    <div class="rec-edit-form" id="edit-{{ r.id }}" style="display:none;margin-top:14px;border-top:1px solid #e8eaf0;padding-top:14px;">
+                        <form method="POST" action="/recorrentes/editar/{{ r.id }}">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Tipo</label>
+                                    <select name="tipo">
+                                        <option value="despesa" {{ 'selected' if r.tipo == 'despesa' }}>Despesa</option>
+                                        <option value="entrada" {{ 'selected' if r.tipo == 'entrada' }}>Entrada</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Frequência</label>
+                                    <select name="frequencia">
+                                        <option value="mensal" {{ 'selected' if r.frequencia == 'mensal' }}>Mensal</option>
+                                        <option value="semanal" {{ 'selected' if r.frequencia == 'semanal' }}>Semanal</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Descrição</label>
+                                <input type="text" name="descricao" value="{{ r.descricao }}" required>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Categoria</label>
+                                    <input type="text" name="categoria" value="{{ r.categoria }}" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Subtipo</label>
+                                    <select name="subtipo">
+                                        <option value="" {{ 'selected' if not r.subtipo }}>—</option>
+                                        <option value="fixa" {{ 'selected' if r.subtipo == 'fixa' }}>Fixa</option>
+                                        <option value="variável" {{ 'selected' if r.subtipo == 'variável' }}>Variável</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Valor (R$)</label>
+                                    <input type="number" name="valor" step="0.01" value="{{ r.valor }}" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Próxima data</label>
+                                    <input type="date" name="proxima_data" value="{{ r.proxima_data }}" required>
+                                </div>
+                            </div>
+                            <div style="display:flex;gap:8px;">
+                                <button type="submit" class="btn" style="background:#1a1f36;color:#fff;">Salvar</button>
+                                <button type="button" class="btn" style="background:#eee;color:#333;" onclick="fecharEdicao({{ r.id }})">Cancelar</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="form-card" style="text-align:center;color:#888;">
+                <p style="margin:0;">Nenhum lançamento recorrente cadastrado ainda.</p>
+                <p style="font-size:0.85rem;">Cadastre despesas ou entradas que se repetem mensalmente ou semanalmente.</p>
+            </div>
+            {% endif %}
+        </div>
+
+    </div>
+
+
+</main>
+<footer class="page-footer">
+    <p>Controle Financeiro — simples e eficiente</p>
+</footer>
+</div><!-- .page-wrap -->
+</div><!-- .app-wrapper -->
+
+<script>
+function abrirEdicao(id) {
+    document.querySelectorAll('.rec-edit-form').forEach(function(el) { el.style.display = 'none'; });
+    var el = document.getElementById('edit-' + id);
+    if (el) el.style.display = 'block';
+}
+function fecharEdicao(id) {
+    var el = document.getElementById('edit-' + id);
+    if (el) el.style.display = 'none';
+}
+</script>
+
+<div class="toast-container" id="toast-container"></div>
+<script src="/static/app.js"></script>
+
+</body>
+</html>
